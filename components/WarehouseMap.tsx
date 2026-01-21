@@ -267,8 +267,8 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                                     setSelectedLocation(null);
                                 }}
                                 className={`px-3 py-1.5 rounded-md text-sm font-bold transition-colors ${selectedRack === area
-                                        ? 'bg-slate-700 text-white shadow-md'
-                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                    ? 'bg-slate-700 text-white shadow-md'
+                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                     }`}
                             >
                                 {area}
@@ -287,8 +287,8 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                                     setSelectedLocation(null);
                                 }}
                                 className={`px-3 py-1.5 rounded-md text-sm font-bold transition-colors ${selectedRack === rack
-                                        ? 'bg-primary text-white shadow-md'
-                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                    ? 'bg-primary text-white shadow-md'
+                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                     }`}
                             >
                                 Rack {rack}
@@ -320,7 +320,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                                 <div className="z-10 flex flex-col items-center gap-2">
                                     <Package className={`w-16 h-16 ${getItemsInCell(selectedRack, 1, 'Area').length > 0 ? 'text-green-600' : 'text-slate-300'}`} />
                                     <div className="text-2xl font-bold text-slate-700">
-                                        {getItemsInCell(selectedRack, 1, 'Area').length} Items Stored
+                                        {getItemsInCell(selectedRack, 1, 'Area').reduce((acc, i) => acc + i.quantity, 0)} Units • {new Set(getItemsInCell(selectedRack, 1, 'Area').map(i => i.productCode)).size} SKUs
                                     </div>
                                     <div className="text-sm text-slate-500 bg-white/80 px-3 py-1 rounded-full backdrop-blur-sm">
                                         Bulk Storage Area
