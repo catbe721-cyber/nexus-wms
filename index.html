@@ -6,17 +6,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NexusWMS</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap"
+    rel="stylesheet">
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           colors: {
-            primary: '#D32F2F', // TFF Strong Red
-            secondary: '#1F2937', // Dark Slate
-            accent: '#F59E0B',
+            // "Mysterious" Palette
+            primary: '#8b5cf6', // Violet-500 (Neon glow)
+            secondary: '#0f172a', // Slate-900 (Deep background)
+            accent: '#06b6d4', // Cyan-500 (Tech accents)
+            background: '#020617', // Slate-950 (Void)
+            surface: '#1e293b', // Slate-800 (Cards)
           },
           fontFamily: {
             sans: ['Inter', 'system-ui', 'sans-serif'],
+            display: ['Rajdhani', 'sans-serif'], // Tech headers
           }
         }
       }
@@ -25,7 +35,8 @@
   <script type="module" src="/index.tsx"></script>
 </head>
 
-<body class="bg-white text-slate-900 h-screen overflow-hidden font-sans">
+<body
+  class="bg-background text-slate-100 h-screen overflow-hidden font-sans text-lg selection:bg-primary selection:text-white">
   <div id="root" class="h-full"></div>
 </body>
 

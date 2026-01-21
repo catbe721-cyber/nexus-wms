@@ -250,9 +250,12 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
     return (
         <div className="h-full flex flex-col md:flex-row gap-4 h-[calc(100vh-100px)]">
             {/* Left: Map Visualization */}
-            <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col overflow-hidden">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+            <div className="flex-1 bg-slate-900/60 backdrop-blur-md rounded-xl shadow-[0_0_15px_rgba(0,0,0,0.5)] border border-white/10 p-4 flex flex-col overflow-hidden relative">
+                {/* Grid Background Effect */}
+                <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] [mask-image:radial-gradient(ellipse_at_center,black_70%,transparent_100%)]"></div>
+
+                <div className="flex justify-between items-center mb-4 relative z-10">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2 font-display tracking-wide">
                         <MapPin className="w-5 h-5 text-primary" />
                         Warehouse Visualizer
                     </h2>
@@ -266,9 +269,9 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                                     setSelectedRack(area);
                                     setSelectedLocation(null);
                                 }}
-                                className={`px-3 py-1.5 rounded-md text-sm font-bold transition-colors ${selectedRack === area
-                                    ? 'bg-slate-700 text-white shadow-md'
-                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all ${selectedRack === area
+                                    ? 'bg-primary text-white shadow-[0_0_10px_rgba(139,92,246,0.6)] border border-primary/50'
+                                    : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white border border-white/5'
                                     }`}
                             >
                                 {area}
@@ -286,9 +289,9 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                                     setSelectedRack(rack);
                                     setSelectedLocation(null);
                                 }}
-                                className={`px-3 py-1.5 rounded-md text-sm font-bold transition-colors ${selectedRack === rack
-                                    ? 'bg-primary text-white shadow-md'
-                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all ${selectedRack === rack
+                                    ? 'bg-primary text-white shadow-[0_0_10px_rgba(139,92,246,0.6)] border border-primary/50'
+                                    : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white border border-white/5'
                                     }`}
                             >
                                 Rack {rack}
@@ -297,7 +300,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-auto bg-slate-50 border rounded-lg p-4 relative">
+                <div className="flex-1 overflow-auto bg-slate-950/50 border border-white/5 rounded-lg p-4 relative shadow-inner">
                     {/* Conditional Renderer: Bulk Area vs Grid */}
                     {currentBays === 1 && currentLevels[0] === 'Area' ? (
                         // BULK AREA RENDERER
@@ -305,24 +308,23 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                             <div
                                 onClick={() => setSelectedLocation({ rack: selectedRack, bay: 1, level: 'Area' })}
                                 className={`
-                            w-full max-w-2xl h-64 border-2 rounded-xl cursor-pointer transition-all relative group
-                            flex flex-col items-center justify-center gap-4
-                            ${selectedLocation?.rack === selectedRack ? 'ring-4 ring-primary ring-opacity-50 border-primary' : 'border-slate-300 hover:border-primary'}
-                            ${getItemsInCell(selectedRack, 1, 'Area').length > 0
-                                        ? 'bg-green-50'
-                                        : 'bg-white'}
+                            w-full max-w-2xl h-64 border-2 rounded-xl cursor-pointer transition-all relative group overflow-hidden
+                            flex flex-col items-center justify-center gap-4 backdrop-blur-sm
+                            ${selectedLocation?.rack === selectedRack ? 'ring-4 ring-primary/30 border-primary bg-primary/10' : 'border-white/10 hover:border-primary/50 bg-white/5'}
                         `}
                             >
-                                <div className="text-6xl font-black text-slate-200 uppercase tracking-widest select-none pointer-events-none absolute w-full text-center">
+                                <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.05)_50%,transparent_75%,transparent_100%)] bg-[length:250%_250%,100%_100%] bg-[position:-100%_0,0_0] bg-no-repeat transition-[background-position_0s_ease] hover:bg-[position:200%_0,0_0] duration-[1500ms]"></div>
+
+                                <div className="text-6xl font-black text-white/5 uppercase tracking-widest select-none pointer-events-none absolute w-full text-center font-display">
                                     {selectedRack} ZONE
                                 </div>
 
                                 <div className="z-10 flex flex-col items-center gap-2">
-                                    <Package className={`w-16 h-16 ${getItemsInCell(selectedRack, 1, 'Area').length > 0 ? 'text-green-600' : 'text-slate-300'}`} />
-                                    <div className="text-2xl font-bold text-slate-700">
+                                    <Package className={`w-16 h-16 ${getItemsInCell(selectedRack, 1, 'Area').length > 0 ? 'text-primary drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]' : 'text-slate-700'}`} />
+                                    <div className="text-2xl font-bold text-slate-100 font-display">
                                         {getItemsInCell(selectedRack, 1, 'Area').reduce((acc, i) => acc + i.quantity, 0)} Units • {new Set(getItemsInCell(selectedRack, 1, 'Area').map(i => i.productCode)).size} SKUs
                                     </div>
-                                    <div className="text-sm text-slate-500 bg-white/80 px-3 py-1 rounded-full backdrop-blur-sm">
+                                    <div className="text-sm text-slate-400 bg-black/40 px-3 py-1 rounded-full backdrop-blur-md border border-white/5">
                                         Bulk Storage Area
                                     </div>
                                 </div>
@@ -361,19 +363,19 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                                                 className={`
                                              flex-1 mx-0.5 border rounded-sm cursor-pointer transition-all relative group
                                              flex items-center justify-center text-xs min-w-[3rem]
-                                             ${isSelected ? 'ring-2 ring-primary border-primary z-10' : 'border-slate-300'}
+                                             ${isSelected ? 'ring-2 ring-primary border-primary z-10 shadow-[0_0_10px_rgba(139,92,246,0.5)]' : 'border-white/5'}
                                              ${hasItems
-                                                        ? 'bg-green-100 hover:bg-green-200 border-green-300 text-green-800'
-                                                        : 'bg-white hover:bg-slate-50 text-slate-300'}
+                                                        ? 'bg-primary/20 hover:bg-primary/30 border-primary/30 text-primary-200'
+                                                        : 'bg-white/5 hover:bg-white/10 text-slate-600'}
                                          `}
                                             >
                                                 {hasItems ? (
                                                     <div className="flex flex-col items-center">
-                                                        <Package className="w-4 h-4" />
-                                                        <span className="font-bold">{items.length}</span>
+                                                        <Package className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-primary'}`} />
+                                                        <span className={`font-bold ${isSelected ? 'text-white' : 'text-primary-100'}`}>{items.length}</span>
                                                     </div>
                                                 ) : (
-                                                    <span className="opacity-0 group-hover:opacity-50 text-[10px]">Empty</span>
+                                                    <span className="opacity-0 group-hover:opacity-50 text-[10px] text-slate-400">Empty</span>
                                                 )}
                                             </div>
                                         );
@@ -395,11 +397,11 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
             </div>
 
             {/* Right: Cell Details */}
-            <div className="w-full md:w-80 bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col">
-                <div className="flex justify-between items-center border-b pb-2 mb-4">
-                    <h3 className="text-lg font-semibold text-slate-800">Bin Details</h3>
+            <div className="w-full md:w-80 bg-slate-900/60 backdrop-blur-md rounded-xl shadow-lg border border-white/10 p-4 flex flex-col">
+                <div className="flex justify-between items-center border-b border-white/10 pb-2 mb-4">
+                    <h3 className="text-lg font-semibold text-white font-display uppercase tracking-wider">Bin Details</h3>
                     {!canEdit && (
-                        <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-full flex items-center gap-1">
+                        <span className="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded-full flex items-center gap-1 border border-white/5">
                             <Lock className="w-3 h-3" /> View Only
                         </span>
                     )}
@@ -407,10 +409,11 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
 
                 {selectedLocation ? (
                     <div className="flex-1 flex flex-col overflow-hidden">
-                        <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-100 text-slate-800 flex justify-between items-center">
-                            <div>
+                        <div className="mb-4 p-3 bg-primary/10 rounded-lg border border-primary/20 text-white flex justify-between items-center relative overflow-hidden">
+                            <div className="absolute inset-0 bg-primary/5 blur-xl"></div>
+                            <div className="relative z-10">
                                 <span className="font-bold block text-sm uppercase tracking-wider text-primary">Selected Bin</span>
-                                <span className="text-2xl font-bold font-mono">
+                                <span className="text-3xl font-bold font-display text-white">
                                     {selectedLocation.rack}-{String(selectedLocation.bay).padStart(2, '0')}-{selectedLocation.level}
                                 </span>
                             </div>
@@ -419,9 +422,9 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                         <div className="flex-1 overflow-y-auto space-y-3 mb-4">
                             {selectedCellItems.length > 0 ? (
                                 selectedCellItems.map(item => (
-                                    <div key={item.id} className="p-3 border rounded-lg hover:shadow-sm transition-shadow bg-white">
-                                        <div className="font-medium text-slate-900 text-base">{item.productName}</div>
-                                        <div className="text-xs text-slate-400 font-mono mt-0.5">{item.productCode}</div>
+                                    <div key={item.id} className="p-3 border border-white/5 rounded-lg hover:border-primary/30 transition-all bg-slate-800/40 hover:bg-slate-800/60">
+                                        <div className="font-medium text-slate-200 text-base">{item.productName}</div>
+                                        <div className="text-xs text-slate-500 font-mono mt-0.5 tracking-wider">{item.productCode}</div>
 
                                         {canEdit && editingItemId === item.id ? (
                                             <div className="flex items-center gap-2 mt-2">
@@ -429,10 +432,10 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                                                     type="number"
                                                     value={editQty}
                                                     onChange={(e) => setEditQty(parseFloat(e.target.value))}
-                                                    className="w-20 px-2 py-1 border rounded text-sm"
+                                                    className="w-20 px-2 py-1 border border-primary/50 bg-slate-900 text-white rounded text-sm focus:ring-1 focus:ring-primary outline-none"
                                                 />
-                                                <button type="button" onClick={() => handleUpdateQty(item)} className="p-1 bg-green-100 text-green-700 rounded hover:bg-green-200"><Save className="w-4 h-4" /></button>
-                                                <button type="button" onClick={() => setEditingItemId(null)} className="p-1 bg-slate-100 text-slate-600 rounded hover:bg-slate-200"><X className="w-4 h-4" /></button>
+                                                <button type="button" onClick={() => handleUpdateQty(item)} className="p-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded hover:bg-green-500/30"><Save className="w-4 h-4" /></button>
+                                                <button type="button" onClick={() => setEditingItemId(null)} className="p-1 bg-slate-700 text-slate-400 rounded hover:bg-slate-600"><X className="w-4 h-4" /></button>
                                             </div>
                                         ) : (
                                             <>
@@ -607,14 +610,14 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                                     <button
                                         type="button"
                                         onClick={() => setIsAddingItem(true)}
-                                        className="w-full py-2 bg-slate-100 text-slate-600 rounded-lg border border-dashed border-slate-300 hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2 font-medium text-sm"
+                                        className="w-full py-2 bg-white/5 text-slate-400 rounded-lg border border-dashed border-white/10 hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-colors flex items-center justify-center gap-2 font-medium text-sm"
                                     >
                                         <Plus className="w-4 h-4" /> Add Item Here
                                     </button>
                                 )}
                             </>
                         ) : (
-                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
+                            <div className="bg-slate-800/50 p-4 rounded-lg border border-white/5 text-center">
                                 <p className="text-xs text-slate-500">You do not have permission to modify bin contents.</p>
                             </div>
                         )}

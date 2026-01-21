@@ -322,11 +322,11 @@ function App() {
           if (id === 'entry') setEditingItem(null);
         }}
         className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all mb-1 relative ${view === id
-          ? 'bg-primary text-white shadow-md'
-          : 'text-slate-600 hover:bg-red-50 hover:text-primary font-medium'
+          ? 'bg-primary/90 text-white shadow-[0_0_15px_rgba(139,92,246,0.5)] border border-primary/50'
+          : 'text-slate-400 hover:bg-white/5 hover:text-primary font-medium'
           }`}
       >
-        <Icon className={`w-5 h-5 ${view === id ? 'text-white' : 'text-slate-400 group-hover:text-primary'}`} />
+        <Icon className={`w-5 h-5 ${view === id ? 'text-white' : 'text-slate-500 group-hover:text-primary'}`} />
         <span className="tracking-wide">{label}</span>
         {alert && (
           <span className="absolute right-4 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border border-white"></span>
@@ -336,23 +336,27 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen bg-white">
+    <div className="flex h-screen bg-[url('https://images.unsplash.com/photo-1534375971785-5c1826f739d8?q=80&w=2670&auto=format&fit=crop')] bg-cover bg-center text-slate-100 relative">
+      <div className="absolute inset-0 bg-background/90 backdrop-blur-sm"></div>
 
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* Sidebar */}
-      <div className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 text-slate-800 transform transition-transform duration-200 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="p-6 h-full flex flex-col">
-          <div className="flex items-center gap-3 mb-10">
-            <div className="bg-primary p-2 rounded-lg shadow-lg shadow-red-200">
-              <Boxes className="w-6 h-6 text-white" />
+      <div className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-slate-900/50 backdrop-blur-xl border-r border-white/10 text-slate-100 transform transition-transform duration-200 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        <div className="p-6 h-full flex flex-col relative">
+          {/* Scanline Effect */}
+          <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] z-0 bg-[length:100%_2px,3px_100%]"></div>
+
+          <div className="flex items-center gap-4 mb-10 relative z-10">
+            <div className="bg-primary/20 p-2.5 rounded-lg border border-primary/50 shadow-[0_0_15px_rgba(139,92,246,0.3)]">
+              <Boxes className="w-8 h-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900 leading-none">NEXUS<span className="text-primary">WMS</span></h1>
-              <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Warehouse System</span>
+              <h1 className="text-2xl font-bold tracking-tight text-white leading-none font-display">NEXUS<span className="text-primary">WMS</span></h1>
+              <span className="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase">System v2.0</span>
             </div>
           </div>
 
@@ -392,13 +396,13 @@ function App() {
 
           <div className="mt-auto pt-4 border-t border-slate-100 relative">
             {showRoleSwitcher && (
-              <div className="absolute bottom-full left-0 w-full bg-white border border-slate-200 shadow-xl rounded-lg mb-2 p-1 z-50 animate-in fade-in slide-in-from-bottom-2">
+              <div className="absolute bottom-full left-0 w-full bg-slate-800 border border-slate-700 shadow-2xl rounded-lg mb-2 p-1 z-50 animate-in fade-in slide-in-from-bottom-2">
                 <p className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Switch Role</p>
                 {(Object.keys(ROLES) as UserRole[]).map(role => (
                   <button
                     key={role}
                     onClick={() => switchRole(role)}
-                    className={`w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between ${currentUser.role === role ? 'bg-red-50 text-primary font-bold' : 'hover:bg-slate-50 text-slate-600'}`}
+                    className={`w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between ${currentUser.role === role ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'hover:bg-slate-700/50 text-slate-400'}`}
                   >
                     <span>{ROLES[role].label}</span>
                     {currentUser.role === role && <span className="w-2 h-2 rounded-full bg-primary"></span>}
@@ -409,29 +413,29 @@ function App() {
 
             <button
               onClick={() => setShowRoleSwitcher(!showRoleSwitcher)}
-              className="flex items-center gap-3 px-2 w-full hover:bg-slate-50 p-2 rounded-lg transition-colors group"
+              className="flex items-center gap-3 px-2 w-full hover:bg-white/5 p-2 rounded-lg transition-colors group"
             >
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border ${currentUser.role === 'ADMIN' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border ${currentUser.role === 'ADMIN' ? 'bg-primary text-white border-primary' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
                 {currentUser.role[0]}
               </div>
               <div className="text-left flex-1">
-                <p className="text-sm font-bold text-slate-800 group-hover:text-primary transition-colors">{ROLES[currentUser.role].label}</p>
+                <p className="text-sm font-bold text-slate-200 group-hover:text-primary transition-colors font-display tracking-wide">{ROLES[currentUser.role].label}</p>
                 <p className="text-[10px] text-slate-500 uppercase tracking-wide">Change Role</p>
               </div>
-              <ChevronUp className={`w-4 h-4 text-slate-400 transition-transform ${showRoleSwitcher ? 'rotate-180' : ''}`} />
+              <ChevronUp className={`w-4 h-4 text-slate-500 transition-transform ${showRoleSwitcher ? 'rotate-180' : ''}`} />
             </button>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-slate-50/50">
+      <div className="flex-1 flex flex-col overflow-hidden relative z-10">
         {/* Header (Mobile Only) */}
-        <div className="lg:hidden bg-white border-b p-4 flex justify-between items-center sticky top-0 z-30">
-          <button onClick={() => setSidebarOpen(true)} className="p-2 hover:bg-slate-100 rounded-md">
-            <Menu className="w-6 h-6 text-slate-600" />
+        <div className="lg:hidden bg-slate-900/80 backdrop-blur-md border-b border-white/10 p-4 flex justify-between items-center sticky top-0 z-30">
+          <button onClick={() => setSidebarOpen(true)} className="p-2 hover:bg-white/10 rounded-md">
+            <Menu className="w-6 h-6 text-slate-300" />
           </button>
-          <span className="font-bold text-slate-800">NEXUS<span className="text-primary">WMS</span></span>
+          <span className="font-bold text-white font-display text-xl">NEXUS<span className="text-primary">WMS</span></span>
           <div className="w-10"></div>
         </div>
 
@@ -442,34 +446,35 @@ function App() {
           {view === 'dashboard' && (
             <div className="space-y-6 animate-in fade-in duration-500">
               <div className="flex justify-between items-end">
-                <h2 className="text-2xl font-bold text-slate-800">Warehouse Overview</h2>
-                <span className="text-sm text-slate-500 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
-                  Viewing as: <span className="font-bold text-primary">{ROLES[currentUser.role].label}</span>
+                <h2 className="text-3xl font-bold text-white font-display tracking-tight">Command Center</h2>
+                <span className="text-sm text-slate-400 bg-white/5 px-3 py-1 rounded-full border border-white/10 backdrop-blur-sm">
+                  User: <span className="font-bold text-primary">{ROLES[currentUser.role].label}</span>
                 </span>
               </div>
 
               {/* Alerts Section */}
               {lowStockItems.length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-6 shadow-sm">
-                  <h3 className="text-primary font-bold text-lg flex items-center gap-2 mb-4">
-                    <AlertTriangle className="w-5 h-5" /> Low Stock Alerts
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 shadow-[0_0_20px_rgba(239,68,68,0.1)] relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-red-500/5 group-hover:bg-red-500/10 transition-colors"></div>
+                  <h3 className="text-red-400 font-bold text-xl flex items-center gap-2 mb-4 font-display relative z-10">
+                    <AlertTriangle className="w-6 h-6" /> Critical Warnings
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 relative z-10">
                     {lowStockItems.map(item => (
-                      <div key={item.code} className="bg-white p-4 rounded-lg border border-red-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+                      <div key={item.code} className="bg-slate-900/60 p-4 rounded-lg border border-red-500/20 shadow-sm flex flex-col justify-between hover:border-red-500/50 transition-colors backdrop-blur-md">
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex-1">
-                            <span className="font-bold text-slate-800 block truncate">{item.name}</span>
-                            <span className="text-xs text-slate-500 font-mono">{item.code}</span>
+                            <span className="font-bold text-slate-200 block truncate text-lg">{item.name}</span>
+                            <span className="text-xs text-slate-500 font-mono tracking-wider">{item.code}</span>
                           </div>
-                          <span className="bg-red-100 text-primary text-[10px] uppercase font-bold px-2 py-1 rounded">
+                          <span className="bg-red-500/20 text-red-400 text-[10px] uppercase font-bold px-2 py-1 rounded border border-red-500/20">
                             Critical
                           </span>
                         </div>
-                        <div className="flex justify-between items-end border-t border-slate-50 pt-2 mt-1">
-                          <div className="text-xs text-slate-500">Available</div>
-                          <div className="text-primary font-bold">
-                            {item.qty} <span className="text-xs font-normal text-slate-400">/ {item.minStockLevel} {item.unit}</span>
+                        <div className="flex justify-between items-end border-t border-white/5 pt-2 mt-1">
+                          <div className="text-xs text-slate-500 uppercase tracking-widest">Stock Level</div>
+                          <div className="text-red-400 font-bold font-mono text-lg">
+                            {item.qty} <span className="text-xs font-normal text-slate-600">/ {item.minStockLevel} {item.unit}</span>
                           </div>
                         </div>
                       </div>
@@ -479,23 +484,23 @@ function App() {
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all border-l-4 border-l-slate-800">
-                  <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Total Items</p>
-                  <p className="text-3xl font-bold text-slate-800 mt-2">{inventory.reduce((acc, i) => acc + i.quantity, 0).toLocaleString()}</p>
+                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 hover:border-primary/50 transition-all backdrop-blur-md group">
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1 group-hover:text-primary transition-colors">Total Items</p>
+                  <p className="text-4xl font-bold text-white font-display">{inventory.reduce((acc, i) => acc + i.quantity, 0).toLocaleString()}</p>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all border-l-4 border-l-slate-800">
-                  <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Products</p>
-                  <p className="text-3xl font-bold text-slate-800 mt-2">{inventorySummary.length}</p>
+                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 hover:border-accent/50 transition-all backdrop-blur-md group">
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1 group-hover:text-accent transition-colors">Products</p>
+                  <p className="text-4xl font-bold text-white font-display">{inventorySummary.length}</p>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all border-l-4 border-l-primary">
-                  <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Low Stock</p>
-                  <p className="text-3xl font-bold text-primary mt-2">
-                    {lowStockItems.length} <span className="text-sm text-slate-400 font-normal">items</span>
+                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 hover:border-red-500/50 transition-all backdrop-blur-md group">
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1 group-hover:text-red-400 transition-colors">Low Stock</p>
+                  <p className="text-4xl font-bold text-red-400 font-display">
+                    {lowStockItems.length}
                   </p>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all border-l-4 border-l-blue-600">
-                  <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Occupied Slots</p>
-                  <p className="text-3xl font-bold text-blue-600 mt-2">
+                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 hover:border-blue-500/50 transition-all backdrop-blur-md group">
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1 group-hover:text-blue-400 transition-colors">Occupied Slots</p>
+                  <p className="text-4xl font-bold text-blue-400 font-display">
                     {inventory.reduce((acc, i) => acc + i.locations.length, 0)}
                   </p>
                 </div>

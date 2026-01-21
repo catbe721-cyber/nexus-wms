@@ -128,13 +128,13 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300 relative">
+    <div className="bg-slate-900/60 backdrop-blur-md rounded-xl shadow-[0_0_15px_rgba(0,0,0,0.5)] border border-white/10 p-6 max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300 relative">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-slate-800">
+        <h2 className="text-2xl font-bold text-white font-display uppercase tracking-wide">
           {initialData ? 'Edit Inventory Record' : 'Record Inbound Inventory'}
         </h2>
         {initialData && (
-          <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-1 rounded border border-amber-200">
+          <span className="bg-amber-500/20 text-amber-400 text-xs font-bold px-2 py-1 rounded border border-amber-500/30">
             Editing Mode
           </span>
         )}
@@ -144,7 +144,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
 
         {/* Product Search */}
         <div className="relative">
-          <label className="block text-sm font-medium text-slate-700 mb-1">Product Search (Code or Name)</label>
+          <label className="block text-sm font-bold text-slate-400 mb-1 uppercase tracking-wider">Product Search (Code or Name)</label>
           <input
             type="text"
             value={searchTerm}
@@ -155,23 +155,23 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
               }
             }}
             placeholder="Search by code or name..."
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none placeholder-slate-600"
             disabled={!!initialData}
           />
-          {initialData && <p className="text-xs text-slate-400 mt-1">Product cannot be changed when editing.</p>}
+          {initialData && <p className="text-xs text-slate-500 mt-1">Product cannot be changed when editing.</p>}
 
           {/* Autocomplete Dropdown */}
           {searchTerm && !selectedProduct && filteredProducts.length > 0 && !initialData && (
-            <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+            <div className="absolute z-50 w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
               {filteredProducts.map(p => (
                 <div
                   key={p.id}
                   onClick={() => handleSelectProduct(p)}
-                  className="px-4 py-2 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0"
+                  className="px-4 py-2 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0"
                 >
-                  <span className="font-bold text-slate-800">{p.name}</span>
+                  <span className="font-bold text-slate-200">{p.name}</span>
                   <br />
-                  <span className="text-xs text-slate-400">{p.code}</span>
+                  <span className="text-xs text-slate-500">{p.code}</span>
                 </div>
               ))}
             </div>
@@ -180,55 +180,55 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div className="col-span-2 md:col-span-1">
-            <label className="block text-sm font-medium text-slate-700 mb-1">Quantity</label>
+            <label className="block text-sm font-bold text-slate-400 mb-1 uppercase tracking-wider">Quantity</label>
             <input
               type="number"
               min="0"
               value={quantity}
               onChange={(e) => setQuantity(parseFloat(e.target.value))}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary"
+              className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary outline-none"
             />
           </div>
           <div className="col-span-1">
-            <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1">
-              Unit <Lock className="w-3 h-3 text-slate-400" />
+            <label className="block text-sm font-bold text-slate-400 mb-1 uppercase tracking-wider flex items-center gap-1">
+              Unit <Lock className="w-3 h-3 text-slate-500" />
             </label>
             <input
               type="text"
               value={unit}
               readOnly
-              className="w-full px-4 py-2 border border-slate-200 bg-slate-100 text-slate-500 rounded-lg focus:outline-none cursor-not-allowed"
+              className="w-full px-4 py-2 border border-white/5 bg-white/5 text-slate-500 rounded-lg focus:outline-none cursor-not-allowed"
             />
           </div>
           <div className="col-span-1">
-            <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1">
-              Category <Lock className="w-3 h-3 text-slate-400" />
+            <label className="block text-sm font-bold text-slate-400 mb-1 uppercase tracking-wider flex items-center gap-1">
+              Category <Lock className="w-3 h-3 text-slate-500" />
             </label>
             <input
               type="text"
               value={category}
               readOnly
-              className="w-full px-4 py-2 border border-slate-200 bg-slate-100 text-slate-500 rounded-lg focus:outline-none cursor-not-allowed"
+              className="w-full px-4 py-2 border border-white/5 bg-white/5 text-slate-500 rounded-lg focus:outline-none cursor-not-allowed"
             />
           </div>
         </div>
 
         {selectedProduct && selectedProduct.postingGroup && (
-          <div className="text-xs text-slate-500 bg-slate-50 p-2 rounded border">
-            Posting Group: <span className="font-medium">{selectedProduct.postingGroup}</span>
+          <div className="text-xs text-slate-400 bg-slate-800 p-2 rounded border border-white/10">
+            Posting Group: <span className="font-medium text-slate-300">{selectedProduct.postingGroup}</span>
           </div>
         )}
 
         {/* Location Manager */}
-        <div className="border rounded-lg p-4 bg-slate-50">
+        <div className="border border-white/10 rounded-lg p-4 bg-black/20">
           <div className="flex justify-between items-center mb-3">
-            <label className="block text-sm font-bold text-slate-800">Bin (Storage)</label>
-            <span className="text-xs text-slate-400 italic">Leave empty to assign to Staging Area</span>
+            <label className="block text-sm font-bold text-slate-300 uppercase tracking-wider">Bin (Storage)</label>
+            <span className="text-xs text-slate-500 italic">Leave empty to assign to Staging Area</span>
           </div>
 
           <div className="relative mb-4">
-            <div className="flex items-center border rounded-lg bg-white overflow-hidden focus-within:ring-2 focus-within:ring-primary">
-              <div className="pl-3 text-slate-400"><MapPin className="w-4 h-4" /></div>
+            <div className="flex items-center border border-white/10 rounded-lg bg-black/40 overflow-hidden focus-within:ring-2 focus-within:ring-primary">
+              <div className="pl-3 text-slate-500"><MapPin className="w-4 h-4" /></div>
               <input
                 type="text"
                 value={locationSearch}
@@ -238,10 +238,10 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
                 }}
                 onFocus={() => setShowLocationDropdown(true)}
                 placeholder="Search bin (e.g. type 'A11' for A-01-1)..."
-                className="w-full px-3 py-2 outline-none text-sm"
+                className="w-full px-3 py-2 outline-none text-sm bg-transparent text-slate-100 placeholder-slate-600"
               />
               {locationSearch && (
-                <button type="button" onClick={() => setLocationSearch('')} className="p-2 text-slate-400 hover:text-slate-600">
+                <button type="button" onClick={() => setLocationSearch('')} className="p-2 text-slate-500 hover:text-slate-300">
                   <X className="w-4 h-4" />
                 </button>
               )}
@@ -249,34 +249,34 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
 
             {/* Location Dropdown */}
             {showLocationDropdown && locationSearch && filteredLocations.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+              <div className="absolute z-10 w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
                 {filteredLocations.map(loc => (
                   <div
                     key={loc.id}
                     onClick={() => handleAddLocation(loc)}
-                    className="px-4 py-2 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0 flex justify-between items-center"
+                    className="px-4 py-2 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0 flex justify-between items-center"
                   >
-                    <span className="font-bold text-slate-800 font-mono">{loc.code}</span>
-                    <span className="text-xs text-slate-400">Rack {loc.rack} • Bay {loc.bay} • Level {loc.level}</span>
+                    <span className="font-bold text-slate-200 font-mono">{loc.code}</span>
+                    <span className="text-xs text-slate-500">Rack {loc.rack} • Bay {loc.bay} • Level {loc.level}</span>
                   </div>
                 ))}
               </div>
             )}
             {showLocationDropdown && locationSearch && filteredLocations.length === 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg p-4 text-center text-slate-500 text-sm">
+              <div className="absolute z-10 w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-xl p-4 text-center text-slate-500 text-sm">
                 No matching bins found.
               </div>
             )}
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {locations.length === 0 && <span className="text-sm text-slate-400 italic">No specific bins selected. Will default to Staging.</span>}
+            {locations.length === 0 && <span className="text-sm text-slate-500 italic">No specific bins selected. Will default to Staging.</span>}
             {locations.map((loc, idx) => (
-              <div key={idx} className={`border rounded-full px-3 py-1 text-sm flex items-center gap-2 shadow-sm ${loc.rack === 'STG' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-white border-slate-300 text-slate-700'}`}>
-                <span className="font-bold">
+              <div key={idx} className={`border rounded-full px-3 py-1 text-sm flex items-center gap-2 shadow-sm ${loc.rack === 'STG' ? 'bg-amber-900/30 border-amber-700/50 text-amber-200' : 'bg-slate-800 border-slate-600 text-slate-300'}`}>
+                <span className="font-bold font-mono">
                   {`${loc.rack}-${loc.bay}-${loc.level}`}
                 </span>
-                <button type="button" onClick={() => handleRemoveLocation(idx)} className="text-red-500 hover:text-red-700">
+                <button type="button" onClick={() => handleRemoveLocation(idx)} className="text-red-400 hover:text-red-300">
                   <X className="w-3 h-3" />
                 </button>
               </div>
@@ -285,17 +285,17 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t">
+        <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
           <button
             type="button"
             onClick={onCancel}
-            className="px-6 py-2 rounded-lg text-slate-600 hover:bg-slate-100 font-medium"
+            className="px-6 py-2 rounded-lg text-slate-400 hover:bg-white/5 font-medium border border-transparent hover:border-white/10 transition-all"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="px-6 py-2 rounded-lg bg-primary text-white hover:bg-blue-700 font-medium flex items-center gap-2 shadow-lg shadow-blue-500/30"
+            className="px-6 py-2 rounded-lg bg-primary text-white hover:bg-violet-600 font-medium flex items-center gap-2 shadow-[0_0_15px_rgba(139,92,246,0.5)] border border-primary/50 hover:border-primary transition-all"
           >
             {initialData ? <Save className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
             {initialData ? 'Update Record' : 'Save Record'}
