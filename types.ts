@@ -23,8 +23,8 @@ export interface Product {
 
 export interface InventoryLocation {
   rack: string; // A-H, J, STG, ADJ
-  bay: number;  
-  level: string; 
+  bay: number;
+  level: string;
 }
 
 export interface MasterLocation {
@@ -67,12 +67,12 @@ export const STANDARD_RACKS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J'];
 
 // Define Area Dimensions
 export const AREA_CONFIG: Record<string, { bays: number, levels: string[] }> = {
-    // Special Areas (Priority Order)
-    'STG': { bays: 1, levels: ['Area'] },
-    'ADJ': { bays: 1, levels: ['Area'] },
+  // Special Areas (Priority Order)
+  'STG': { bays: 1, levels: ['Area'] },
+  'ADJ': { bays: 1, levels: ['Area'] },
 
-    // Standard Racks: 12 Bays, 4 Levels
-    ...Object.fromEntries(STANDARD_RACKS.map(r => [r, { bays: 12, levels: ['3', '2', '1', 'Floor'] }])),
+  // Standard Racks: 12 Bays, 4 Levels
+  ...Object.fromEntries(STANDARD_RACKS.map(r => [r, { bays: 12, levels: ['3', '2', '1', 'Floor'] }])),
 };
 
 export const ALL_AREAS = Object.keys(AREA_CONFIG);
@@ -90,5 +90,35 @@ export const generateId = () => {
       // Fallback
     }
   }
-  return Date.now().toString(36) + Math.random().toString(36).substring(2);
+}
+return Date.now().toString(36) + Math.random().toString(36).substring(2);
+};
+
+// Priority Calculation Helper
+// Logic: STG -> ADJ -> FLOOR -> Level -> BAY -> RACK
+export const getBestLocationScore = (locations: InventoryLocation[]) => {
+  if (locations.length === 0) return 999999999;
+
+  const scoreLocation = (loc: InventoryLocation) => {
+    // 1. Area Priority (STG=0, ADJ=1, Standard=2)
+    let areaScore = 2;
+    if (loc.rack === 'STG') areaScore = 0;
+    else if (loc.rack === 'ADJ') areaScore = 1;
+
+    // 2. Level Priority (Floor=0, 1=1, 2=2...)
+    let levelScore = 0;
+    if (loc.level === 'Floor') levelScore = 0;
+    else levelScore = parseInt(loc.level) || 99;
+
+    // 3. Bay Priority
+    const bayScore = loc.bay;
+
+    // 4. Rack Name Priority (A < B) - Standard Racks Alphabetical
+    const rackScore = loc.rack.charCodeAt(0);
+
+    // Weighting: Area >> Level >> Bay >> Rack
+    return (areaScore * 100000000) + (levelScore * 1000000) + (bayScore * 1000) + rackScore;
+  };
+
+  return Math.min(...locations.map(scoreLocation));
 };
