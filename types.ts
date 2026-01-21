@@ -68,8 +68,8 @@ export const STANDARD_RACKS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J'];
 // Define Area Dimensions
 export const AREA_CONFIG: Record<string, { bays: number, levels: string[] }> = {
   // Special Areas (Priority Order)
-  'STG': { bays: 1, levels: ['Area'] },
-  'ADJ': { bays: 1, levels: ['Area'] },
+  'STG': { bays: 12, levels: ['Floor'] },
+  'ADJ': { bays: 10, levels: ['Floor'] },
 
   // Standard Racks: 12 Bays, 4 Levels
   ...Object.fromEntries(STANDARD_RACKS.map(r => [r, { bays: 12, levels: ['3', '2', '1', 'Floor'] }])),
@@ -90,8 +90,7 @@ export const generateId = () => {
       // Fallback
     }
   }
-}
-return Date.now().toString(36) + Math.random().toString(36).substring(2);
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
 };
 
 // Priority Calculation Helper
