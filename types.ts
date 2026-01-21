@@ -68,8 +68,8 @@ export const STANDARD_RACKS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J'];
 // Define Area Dimensions
 export const AREA_CONFIG: Record<string, { bays: number, levels: string[] }> = {
     // Special Areas (Priority Order)
-    'STG': { bays: 18, levels: Array.from({length: 12}, (_, i) => String(12 - i)) }, // 12 down to 1
-    'ADJ': { bays: 5, levels: ['5', '4', '3', '2', '1'] },
+    'STG': { bays: 1, levels: ['Area'] },
+    'ADJ': { bays: 1, levels: ['Area'] },
 
     // Standard Racks: 12 Bays, 4 Levels
     ...Object.fromEntries(STANDARD_RACKS.map(r => [r, { bays: 12, levels: ['3', '2', '1', 'Floor'] }])),
