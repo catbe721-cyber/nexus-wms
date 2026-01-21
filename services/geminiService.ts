@@ -2,10 +2,13 @@ import { GoogleGenAI } from "@google/genai";
 import { InventoryItem } from "../types";
 
 const getAIClient = () => {
-  if (!process.env.API_KEY) {
-    throw new Error("API Key not found");
+  // Safe access to process.env to prevent "process is not defined" crashes in some browser environments
+  const apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : undefined;
+
+  if (!apiKey) {
+    throw new Error("API Key not found. Please ensure process.env.API_KEY is configured.");
   }
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  return new GoogleGenAI({ apiKey });
 };
 
 export const analyzeInventory = async (query: string, inventory: InventoryItem[]) => {

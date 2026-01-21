@@ -1,7 +1,5 @@
 {
   "name": "NexusWMS - Warehouse Management",
   "description": "A comprehensive warehouse management system with visual mapping, product tracking, and AI-powered inventory analysis.",
-  "requestFramePermissions": [
-    "camera"
-  ]
+  "requestFramePermissions": []
 }

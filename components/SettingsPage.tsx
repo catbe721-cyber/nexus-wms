@@ -53,9 +53,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         if (col === 'locations' && Array.isArray(val)) {
              // Convert location objects to string "Rack-Bay-Level|..."
              val = val.map((l: any) => `${l.rack}-${l.bay}-${l.level}`).join('|');
-        } else if (col === 'photos' && Array.isArray(val)) {
-             // Exclude massive photo data to keep CSV sane
-             val = ''; 
         } else if (typeof val === 'object' && val !== null) {
              val = JSON.stringify(val);
         } else if (val === undefined || val === null) {
@@ -186,7 +183,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                           category: row.category,
                           locations: parsedLocs,
                           updatedAt: parseInt(row.updatedAt) || Date.now(),
-                          photos: [] // Photos not supported in CSV
                       } as InventoryItem;
                   }
                   

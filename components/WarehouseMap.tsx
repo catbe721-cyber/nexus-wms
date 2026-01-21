@@ -113,7 +113,6 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
               unit: product.defaultUnit || 'pcs',
               quantity: newItemQty,
               locations: [selectedLocation], 
-              photos: [],
               updatedAt: Date.now()
           };
           onInventoryChange('ADD', newItem, newItemQty);

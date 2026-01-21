@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Product, InventoryItem, InventoryLocation, MasterLocation } from '../types';
-import { Plus, X, Upload, Camera, Trash2, CheckCircle, Save, Image as ImageIcon, MapPin, Lock, Container, Search } from 'lucide-react';
+import { X, CheckCircle, Save, MapPin, Lock } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
 
 interface InventoryFormProps {
@@ -17,18 +17,11 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
   const [quantity, setQuantity] = useState<number>(0);
   const [unit, setUnit] = useState('pcs');
   const [category, setCategory] = useState<string>('OTH');
-  const [photos, setPhotos] = useState<string[]>([]);
   const [locations, setLocations] = useState<InventoryLocation[]>([]);
   
-  // Camera State
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
   // Location Search State
   const [locationSearch, setLocationSearch] = useState('');
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Modal State
   const [modalConfig, setModalConfig] = useState<{
@@ -59,16 +52,8 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
       setUnit(initialData.unit);
       setCategory(initialData.category);
       setLocations(initialData.locations);
-      setPhotos(initialData.photos);
     }
   }, [initialData, products]);
-
-  // Handle Camera Stream Cleanup
-  useEffect(() => {
-    return () => {
-      stopCameraStream();
-    };
-  }, []);
 
   // Filter products based on search
   const filteredProducts = products.filter(p => 
@@ -119,68 +104,6 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
     setLocations(locations.filter((_, i) => i !== index));
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.size > 1024 * 1024) {
-        showAlert("Upload Error", "Image too large. Please select an image under 1MB.", 'danger');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          setPhotos([...photos, reader.result]);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // --- Camera Logic ---
-  const startCamera = async () => {
-    setIsCameraOpen(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (err) {
-      console.error("Camera access error:", err);
-      showAlert("Camera Error", "Unable to access camera. Please check permissions.", 'danger');
-      setIsCameraOpen(false);
-    }
-  };
-
-  const stopCameraStream = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
-      videoRef.current.srcObject = null;
-    }
-  };
-
-  const closeCamera = () => {
-    stopCameraStream();
-    setIsCameraOpen(false);
-  };
-
-  const capturePhoto = () => {
-    if (videoRef.current) {
-      const canvas = document.createElement('canvas');
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(videoRef.current, 0, 0);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-        setPhotos([...photos, dataUrl]);
-        closeCamera();
-      }
-    }
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProduct || quantity <= 0) {
@@ -200,8 +123,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
       quantity,
       unit,
       category,
-      locations: finalLocations,
-      photos
+      locations: finalLocations
     });
   };
 
@@ -362,53 +284,6 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
           </div>
         </div>
 
-        {/* Photos */}
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">Photos</label>
-          <div className="flex flex-wrap gap-4">
-            {photos.map((photo, idx) => (
-              <div key={idx} className="relative w-24 h-24 border rounded-lg overflow-hidden group">
-                <img src={photo} alt="Inventory" className="w-full h-full object-cover" />
-                <button 
-                  type="button"
-                  onClick={() => setPhotos(photos.filter((_, i) => i !== idx))}
-                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-            
-            {/* Take Photo Button */}
-            <button 
-              type="button"
-              onClick={startCamera}
-              className="w-24 h-24 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center text-slate-400 hover:border-primary hover:text-primary transition-colors bg-slate-50"
-            >
-              <Camera className="w-6 h-6 mb-1" />
-              <span className="text-xs">Take Photo</span>
-            </button>
-
-            {/* Upload Button */}
-            <button 
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-24 h-24 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center text-slate-400 hover:border-primary hover:text-primary transition-colors bg-slate-50"
-            >
-              <ImageIcon className="w-6 h-6 mb-1" />
-              <span className="text-xs">Upload</span>
-            </button>
-            
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept="image/*"
-              onChange={handlePhotoUpload}
-            />
-          </div>
-        </div>
-
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-4 border-t">
           <button 
@@ -427,40 +302,6 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
           </button>
         </div>
       </form>
-
-      {/* Camera Modal Overlay */}
-      {isCameraOpen && (
-        <div className="fixed inset-0 z-[60] bg-black bg-opacity-90 flex flex-col items-center justify-center p-4">
-          <div className="relative w-full max-w-lg bg-black rounded-2xl overflow-hidden aspect-[3/4] shadow-2xl">
-            <video 
-              ref={videoRef} 
-              autoPlay 
-              playsInline 
-              className="w-full h-full object-cover"
-            />
-            
-            {/* Camera Controls */}
-            <div className="absolute bottom-6 left-0 w-full flex justify-center items-center gap-8">
-              <button 
-                onClick={closeCamera}
-                className="p-3 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/30 transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
-              
-              <button 
-                onClick={capturePhoto}
-                className="w-16 h-16 rounded-full border-4 border-white flex items-center justify-center bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-all active:scale-95"
-              >
-                <div className="w-12 h-12 bg-white rounded-full"></div>
-              </button>
-              
-              <div className="w-12"></div> {/* Spacer for balance */}
-            </div>
-          </div>
-          <p className="text-white mt-4 text-sm font-medium">Position item in frame</p>
-        </div>
-      )}
 
       {/* Validation/Error Modal */}
       <ConfirmModal 

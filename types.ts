@@ -45,7 +45,6 @@ export interface InventoryItem {
   unit: string;
   category: string;
   locations: InventoryLocation[];
-  photos: string[]; // Base64 strings
   notes?: string;
   updatedAt: number;
 }
