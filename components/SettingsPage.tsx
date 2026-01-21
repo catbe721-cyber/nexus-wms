@@ -274,37 +274,38 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+      <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-xl shadow-[0_0_15px_rgba(0,0,0,0.5)] border border-white/10">
         <div className="flex items-center gap-3 mb-2">
-          <div className="bg-slate-800 p-2 rounded-lg">
-            <Database className="w-6 h-6 text-white" />
+          <div className="bg-primary/20 p-2 rounded-lg border border-primary/50 shadow-[0_0_10px_rgba(139,92,246,0.3)]">
+            <Database className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-800">Data Management</h2>
-            <p className="text-sm text-slate-500">Backup and Restore your data via CSV.</p>
+            <h2 className="text-xl font-bold text-white font-display uppercase tracking-wider">Data Management</h2>
+            <p className="text-sm text-slate-400">Backup and Restore your data via CSV.</p>
           </div>
         </div>
       </div>
 
       {/* Full Backup Card */}
-      <div className="bg-slate-800 text-white p-6 rounded-xl shadow-lg border border-slate-700">
+      {/* Full Backup Card */}
+      <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-xl shadow-[0_0_20px_rgba(30,41,59,0.5)] border border-white/10">
         <div className="flex items-center gap-3 mb-4">
-          <RefreshCw className="w-6 h-6 text-blue-400" />
+          <RefreshCw className="w-6 h-6 text-cyan-400" />
           <div>
-            <h3 className="text-xl font-bold">Full System Backup</h3>
+            <h3 className="text-xl font-bold font-display uppercase tracking-wider">Full System Backup</h3>
             <p className="text-slate-400 text-sm">Save or restore the entire database (JSON).</p>
           </div>
         </div>
         <div className="flex gap-4">
           <button
             onClick={handleBackup}
-            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
+            className="bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/50 px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all hover:shadow-[0_0_10px_rgba(6,182,212,0.3)]"
           >
             <Download className="w-4 h-4" /> Download Backup
           </button>
           <button
             onClick={() => fullBackupInputRef.current?.click()}
-            className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
+            className="bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 border border-white/10 px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"
           >
             <Upload className="w-4 h-4" /> Restore Backup
           </button>
@@ -320,24 +321,24 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Inventory Card */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-xl shadow-[0_0_15px_rgba(0,0,0,0.5)] border border-white/10 group hover:border-primary/30 transition-colors">
           <div className="flex items-center gap-2 mb-4">
             <FileSpreadsheet className="w-5 h-5 text-primary" />
-            <h3 className="font-bold text-slate-800">Current Inventory</h3>
+            <h3 className="font-bold text-white font-display uppercase tracking-wide">Current Inventory</h3>
           </div>
-          <p className="text-sm text-slate-500 mb-6">
+          <p className="text-sm text-slate-400 mb-6 font-mono">
             {inventory.length} active records.
           </p>
           <div className="flex gap-3">
             <button
               onClick={handleExportInventory}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm font-bold border border-white/10 transition-colors"
             >
               <Download className="w-4 h-4" /> Export
             </button>
             <button
               onClick={() => inventoryInputRef.current?.click()}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg text-sm font-bold transition-colors"
             >
               <Upload className="w-4 h-4" /> Import
             </button>
@@ -352,24 +353,24 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         </div>
 
         {/* Products Card */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-xl shadow-[0_0_15px_rgba(0,0,0,0.5)] border border-white/10 group hover:border-blue-500/30 transition-colors">
           <div className="flex items-center gap-2 mb-4">
-            <FileSpreadsheet className="w-5 h-5 text-blue-600" />
-            <h3 className="font-bold text-slate-800">Product Master</h3>
+            <FileSpreadsheet className="w-5 h-5 text-blue-400" />
+            <h3 className="font-bold text-white font-display uppercase tracking-wide">Product Master</h3>
           </div>
-          <p className="text-sm text-slate-500 mb-6">
+          <p className="text-sm text-slate-400 mb-6 font-mono">
             {products.length} registered products.
           </p>
           <div className="flex gap-3">
             <button
               onClick={handleExportProducts}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm font-bold border border-white/10 transition-colors"
             >
               <Download className="w-4 h-4" /> Export
             </button>
             <button
               onClick={() => productsInputRef.current?.click()}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg text-sm font-bold transition-colors"
             >
               <Upload className="w-4 h-4" /> Import
             </button>
@@ -384,24 +385,24 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         </div>
 
         {/* Transactions Card */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-xl shadow-[0_0_15px_rgba(0,0,0,0.5)] border border-white/10 group hover:border-emerald-500/30 transition-colors">
           <div className="flex items-center gap-2 mb-4">
-            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
-            <h3 className="font-bold text-slate-800">Transaction History</h3>
+            <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
+            <h3 className="font-bold text-white font-display uppercase tracking-wide">Transaction History</h3>
           </div>
-          <p className="text-sm text-slate-500 mb-6">
+          <p className="text-sm text-slate-400 mb-6 font-mono">
             {transactions.length} historical entries.
           </p>
           <div className="flex gap-3">
             <button
               onClick={handleExportTransactions}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm font-bold border border-white/10 transition-colors"
             >
               <Download className="w-4 h-4" /> Export
             </button>
             <button
               onClick={() => transactionsInputRef.current?.click()}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-sm font-bold transition-colors"
             >
               <Upload className="w-4 h-4" /> Import
             </button>
@@ -416,24 +417,24 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         </div>
 
         {/* Locations Card */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-xl shadow-[0_0_15px_rgba(0,0,0,0.5)] border border-white/10 group hover:border-purple-500/30 transition-colors">
           <div className="flex items-center gap-2 mb-4">
-            <FileSpreadsheet className="w-5 h-5 text-purple-600" />
-            <h3 className="font-bold text-slate-800">Bin Locations</h3>
+            <FileSpreadsheet className="w-5 h-5 text-purple-400" />
+            <h3 className="font-bold text-white font-display uppercase tracking-wide">Bin Locations</h3>
           </div>
-          <p className="text-sm text-slate-500 mb-6">
+          <p className="text-sm text-slate-400 mb-6 font-mono">
             {locations.length} storage bins defined.
           </p>
           <div className="flex gap-3">
             <button
               onClick={handleExportLocations}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm font-bold border border-white/10 transition-colors"
             >
               <Download className="w-4 h-4" /> Export
             </button>
             <button
               onClick={() => locationsInputRef.current?.click()}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded-lg text-sm font-bold transition-colors"
             >
               <Upload className="w-4 h-4" /> Import
             </button>
@@ -448,11 +449,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         </div>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex gap-3">
-        <AlertTriangle className="w-5 h-5 text-blue-600 flex-shrink-0" />
-        <div className="text-sm text-blue-800">
-          <p className="font-bold mb-1">Import Note:</p>
-          <p>Importing data will <strong>overwrite</strong> or <strong>append</strong> depending on ID matches. Ensure your CSV file format matches the export format exactly. "Locations" field in Inventory CSV uses pipe-separated values (e.g., "A-01-1|B-02-1").</p>
+      <div className="bg-blue-500/10 border border-blue-500/30 p-4 rounded-xl flex gap-3 shadow-[0_0_10px_rgba(59,130,246,0.1)]">
+        <AlertTriangle className="w-5 h-5 text-blue-400 flex-shrink-0" />
+        <div className="text-sm text-blue-200">
+          <p className="font-bold mb-1 uppercase tracking-wide text-blue-100">Import Note:</p>
+          <p className="text-blue-300/80">Importing data will <strong>overwrite</strong> or <strong>append</strong> depending on ID matches. Ensure your CSV file format matches the export format exactly. "Locations" field in Inventory CSV uses pipe-separated values (e.g., "A-01-1|B-02-1").</p>
         </div>
       </div>
 

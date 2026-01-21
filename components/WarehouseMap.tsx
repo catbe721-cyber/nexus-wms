@@ -447,14 +447,14 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                                                                 {item.category}
                                                             </span>
                                                             <div className="flex items-center gap-2">
-                                                                <span className="text-sm font-semibold bg-slate-100 px-2 py-1 rounded">
+                                                                <span className="text-sm font-bold bg-black/40 text-primary border border-white/10 px-2.5 py-1 rounded shadow-inner font-mono">
                                                                     {item.quantity} {item.unit}
                                                                 </span>
                                                             </div>
                                                         </div>
 
                                                         {canEdit && !editingItemId && !movingItemId && (
-                                                            <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-slate-50">
+                                                            <div className="flex justify-end gap-3 mt-3 pt-3 border-t border-white/5">
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => {
@@ -463,7 +463,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                                                                         setMoveMode('FULL');
                                                                         setMoveQty(item.quantity);
                                                                     }}
-                                                                    className="text-xs text-purple-600 hover:underline flex items-center gap-1"
+                                                                    className="text-xs text-purple-400 hover:text-purple-300 hover:underline flex items-center gap-1 transition-colors"
                                                                 >
                                                                     <ArrowRightLeft className="w-3 h-3" /> Move
                                                                 </button>
@@ -473,14 +473,14 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                                                                         setEditingItemId(item.id);
                                                                         setEditQty(item.quantity);
                                                                     }}
-                                                                    className="text-xs text-blue-600 hover:underline"
+                                                                    className="text-xs text-blue-400 hover:text-blue-300 hover:underline transition-colors"
                                                                 >
                                                                     Adjust
                                                                 </button>
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => handleDeleteItem(item)}
-                                                                    className="text-xs text-red-600 hover:underline"
+                                                                    className="text-xs text-red-400 hover:text-red-300 hover:underline transition-colors"
                                                                 >
                                                                     Remove
                                                                 </button>
