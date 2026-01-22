@@ -346,8 +346,9 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                             {currentLevels.map(level => (
                                 <div key={level} className="flex mb-2 h-16">
                                     {/* Level Label */}
+                                    {/* Level Label */}
                                     <div className="w-16 flex-none flex items-center justify-center text-xs font-bold text-slate-500 bg-slate-100 rounded-l-md border-r border-slate-200">
-                                        {level === 'Floor' ? 'Floor' : `Lvl ${level}`}
+                                        {level === 'Floor' ? 'Floor' : (selectedRack === 'STG' || selectedRack === 'ADJ' ? `Plc ${level}` : `Lvl ${level}`)}
                                     </div>
 
                                     {/* Cells */}
@@ -584,14 +585,14 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                         {canEdit ? (
                             <>
                                 {isAddingItem ? (
-                                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                        <h4 className="text-xs font-bold text-slate-700 mb-2">Add Item to Bin</h4>
+                                    <div className="bg-slate-900 border border-white/10 p-3 rounded-lg shadow-inner">
+                                        <h4 className="text-xs font-bold text-slate-300 mb-2">Add Item to Bin</h4>
                                         <input
                                             list="product-options"
                                             placeholder="Product Name or Code"
                                             value={newItemCode}
                                             onChange={(e) => setNewItemCode(e.target.value)}
-                                            className="w-full px-2 py-1 border rounded text-sm mb-2"
+                                            className="w-full px-2 py-1.5 bg-black/40 border border-white/10 rounded text-sm mb-2 text-white placeholder-slate-500 focus:border-primary outline-none"
                                         />
                                         <datalist id="product-options">
                                             {products.map(p => <option key={p.code} value={p.name}>{p.code}</option>)}
@@ -601,11 +602,11 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                                             placeholder="Quantity"
                                             value={newItemQty}
                                             onChange={(e) => setNewItemQty(parseFloat(e.target.value))}
-                                            className="w-full px-2 py-1 border rounded text-sm mb-2"
+                                            className="w-full px-2 py-1.5 bg-black/40 border border-white/10 rounded text-sm mb-2 text-white placeholder-slate-500 focus:border-primary outline-none"
                                         />
                                         <div className="flex gap-2">
-                                            <button type="button" onClick={handleAddItem} className="flex-1 bg-primary text-white py-1 rounded text-xs font-bold hover:bg-red-700">Save</button>
-                                            <button type="button" onClick={() => setIsAddingItem(false)} className="flex-1 bg-slate-200 text-slate-600 py-1 rounded text-xs font-bold hover:bg-slate-300">Cancel</button>
+                                            <button type="button" onClick={handleAddItem} className="flex-1 bg-primary text-white py-1.5 rounded text-xs font-bold hover:bg-violet-600 border border-primary/50 shadow-[0_0_10px_rgba(139,92,246,0.2)]">Save</button>
+                                            <button type="button" onClick={() => setIsAddingItem(false)} className="flex-1 bg-slate-800 text-slate-400 py-1.5 rounded text-xs font-bold hover:bg-slate-700 hover:text-white border border-white/5">Cancel</button>
                                         </div>
                                     </div>
                                 ) : (
