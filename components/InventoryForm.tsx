@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Product, InventoryItem, InventoryLocation, MasterLocation } from '../types';
-import { X, CheckCircle, Save, MapPin, Lock } from 'lucide-react';
+import { X, CheckCircle, Save, MapPin, Lock, Check } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
 
 interface InventoryFormProps {
@@ -22,6 +22,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
   // Location Search State
   const [locationSearch, setLocationSearch] = useState('');
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Modal State
   const [modalConfig, setModalConfig] = useState<{
@@ -55,6 +56,17 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
     }
   }, [initialData, products]);
 
+  // Auto-dismiss success message
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000); // 3 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
+
+
   // Filter products based on search
   const filteredProducts = products.filter(p =>
     p.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -69,13 +81,21 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
     const cleanSearch = locationSearch.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 
     return masterLocations.filter(loc => {
+      // Defensive checks to prevent rendering crashes
+      if (!loc || !loc.code) return false;
+
       // Create search keys
-      const cleanCode = loc.code.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-      const shortHand = `${loc.rack.toLowerCase()}${loc.bay}${loc.level.toLowerCase()}`; // e.g. a11
+      const codeStr = String(loc.code);
+      const rackStr = loc.rack ? String(loc.rack).toLowerCase() : '';
+      const levelStr = loc.level ? String(loc.level).toLowerCase() : '';
+      const bayStr = loc.bay ? String(loc.bay) : '';
+
+      const cleanCode = codeStr.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+      const shortHand = `${rackStr}${bayStr}${levelStr}`; // e.g. a11
 
       return cleanCode.includes(cleanSearch) ||
         shortHand.includes(cleanSearch) ||
-        loc.code.toLowerCase().includes(locationSearch.toLowerCase());
+        codeStr.toLowerCase().includes(locationSearch.toLowerCase());
     }).slice(0, 8);
   }, [locationSearch, masterLocations]);
 
@@ -125,10 +145,37 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
       category,
       locations: finalLocations
     });
+
+    // Success State & Reset
+    const locString = finalLocations.map(l => `${l.rack}-${l.bay}`).join(', ');
+    setSuccessMessage(`Received ${quantity} ${unit} of ${selectedProduct.name} at ${locString}`);
+
+    if (!initialData) {
+      // Only reset if it's a new entry (not editing existing)
+      setQuantity(0);
+      // Keep product selected? User might be receiving multiple batches of same product.
+      // Or reset everything? Standard WMS usually keeps product context or clears all.
+      // Let's clear product to allow rapid entry of DIFFERENT items, but maybe user wants same?
+      // Let's clear everything for cleanliness as per "Clean Slate" usually preferred.
+      setSelectedProduct(null);
+      setSearchTerm('');
+      setLocations([]);
+    }
   };
 
   return (
-    <div className="bg-slate-900/60 backdrop-blur-md rounded-xl shadow-[0_0_15px_rgba(0,0,0,0.5)] border border-white/10 p-6 max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300 relative">
+    <div className="bg-slate-900/60 backdrop-blur-md rounded-xl shadow-[0_0_15px_rgba(0,0,0,0.5)] border border-white/10 p-6 max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300 relative overflow-hidden">
+
+      {/* Success Toast Overlay */}
+      {successMessage && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-4 fade-in duration-300 pointer-events-none w-full flex justify-center">
+          <div className="bg-green-500/20 backdrop-blur-md border border-green-500/50 text-green-300 px-6 py-3 rounded-full shadow-[0_0_20px_rgba(34,197,94,0.3)] flex items-center gap-2 font-bold font-display tracking-wide">
+            <Check className="w-5 h-5" />
+            {successMessage}
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-white font-display uppercase tracking-wide">
           {initialData ? 'Edit Inventory Record' : 'Record Inbound Inventory'}

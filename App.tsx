@@ -21,10 +21,11 @@ import {
   Users,
   LogOut,
   ChevronUp,
-  Settings
+  Settings,
+  ArrowRightLeft
 } from 'lucide-react';
 
-import { Product, InventoryItem, ViewState, InventoryLocation, Transaction, MasterLocation, AREA_CONFIG, generateId, UserRole, ROLES } from './types';
+import { Product, InventoryItem, ViewState, InventoryLocation, Transaction, MasterLocation, AREA_CONFIG, generateId, UserRole, ROLES, SavedPickList } from './types';
 import InventoryForm from './components/InventoryForm';
 import OutboundForm from './components/OutboundForm';
 import WarehouseMap from './components/WarehouseMap';
@@ -32,7 +33,9 @@ import ProductPage from './components/ProductPage';
 import ItemEntriesPage from './components/ItemEntriesPage';
 import InventoryList from './components/InventoryList';
 import SettingsPage from './components/SettingsPage';
+import StockMovementForm from './components/StockMovementForm';
 import ConfirmModal, { ModalType } from './components/ConfirmModal';
+import { GASService } from './services/gasApi';
 
 // Updated initial data based on user request
 const INITIAL_PRODUCTS: Product[] = [
@@ -55,6 +58,9 @@ const INITIAL_PRODUCTS: Product[] = [
   { id: 'S001-09-1', code: 'S001-09-1', name: 'Mayonnaise', defaultCategory: 'RTE', defaultUnit: 'PLT', minStockLevel: 3 },
 ];
 
+// Hardcoded URL for shared database access
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxvCw5tZAZPyH7LLOU30ivLKGksCAzHTtSvlNM14wAXCKw7RLnBD4O6ejNBRiYpYXOT/exec';
+
 function App() {
   const [view, setView] = useState<ViewState>('dashboard');
 
@@ -71,8 +77,8 @@ function App() {
     onConfirm?: () => void;
   }>({ isOpen: false, title: '', message: '', type: 'info' });
 
-  const showAlert = (title: string, message: string) => {
-    setModalConfig({ isOpen: true, title, message, type: 'info' });
+  const showAlert = (title: string, message: string, type: ModalType = 'info') => {
+    setModalConfig({ isOpen: true, title, message, type });
   };
 
   // -- State Initialization --
@@ -88,6 +94,11 @@ function App() {
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem('nexuswms_transactions');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [savedPickLists, setSavedPickLists] = useState<SavedPickList[]>(() => {
+    const saved = localStorage.getItem('nexuswms_picklists');
     return saved ? JSON.parse(saved) : [];
   });
 
@@ -116,6 +127,17 @@ function App() {
     return locs;
   });
 
+  // -- Google Sheets State --
+  const [gasConfig, setGasConfig] = useState<{ url: string, enabled: boolean }>(() => {
+    const saved = localStorage.getItem('nexuswms_gas_config');
+    const parsed = saved ? JSON.parse(saved) : {};
+    return {
+      url: parsed.url || DEFAULT_GAS_URL,
+      enabled: parsed.enabled !== undefined ? parsed.enabled : true
+    };
+  });
+  const [isSyncing, setIsSyncing] = useState(false);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
 
@@ -123,7 +145,97 @@ function App() {
   useEffect(() => { localStorage.setItem('nexuswms_inventory', JSON.stringify(inventory)); }, [inventory]);
   useEffect(() => { localStorage.setItem('nexuswms_products', JSON.stringify(products)); }, [products]);
   useEffect(() => { localStorage.setItem('nexuswms_transactions', JSON.stringify(transactions)); }, [transactions]);
+  useEffect(() => { localStorage.setItem('nexuswms_picklists', JSON.stringify(savedPickLists)); }, [savedPickLists]);
   useEffect(() => { localStorage.setItem('nexuswms_locations_v3', JSON.stringify(masterLocations)); }, [masterLocations]);
+  useEffect(() => { localStorage.setItem('nexuswms_gas_config', JSON.stringify(gasConfig)); }, [gasConfig]);
+
+  // Load from GAS on mount if enabled
+  useEffect(() => {
+    if (gasConfig.enabled && gasConfig.url) {
+      handleSyncGas(false); // Initial load (don't overwrite cloud with local yet)
+    }
+  }, []); // Run once on mount
+
+  const handleSyncGas = async (pushLocalToCloud = true, silent = false, forcePushEmpty = false) => {
+    if (!gasConfig.url || !gasConfig.enabled) return; // check enabled flag
+
+    // SAFETY CHECK: 
+    // If we are about to PUSH (Auto-Save), but the local inventory is completely empty,
+    // it likely means the user just opened the app in a new session (e.g., Incognito).
+    // In this case, we should NOT wipe the cloud data. Instead, we should PULL (Load) from cloud.
+    if (pushLocalToCloud && !forcePushEmpty && inventory.length === 0 && transactions.length === 0) {
+      if (!silent) console.log("NexusWMS: Detected empty local state. Switching to PULL mode to load data from Cloud.");
+      pushLocalToCloud = false;
+    }
+
+    setIsSyncing(true);
+    try {
+      if (pushLocalToCloud) {
+        // Push Mode: Save all local data to Cloud
+        await GASService.saveData(gasConfig.url, 'saveAll', {
+          inventory,
+          products,
+          transactions,
+          locations: masterLocations
+        });
+        // if (!silent) showAlert('Sync Complete', 'Local data successfully saved to Google Sheets.');
+      } else {
+        // Pull Mode: Load from Cloud
+        const data = await GASService.fetchData(gasConfig.url);
+
+        // Critical Race Condition Fix:
+        // If the user added items *while* we were fetching data (e.g., initial load race),
+        // we must NOT overwrite their new work with potentially empty/stale cloud data.
+
+        setInventory(prev => {
+          // If we started with empty inventory (inventory.length === 0 captured in closure)
+          // but now have items (prev.length > 0), user must have added them. Abort overwrite.
+          if (inventory.length === 0 && prev.length > 0) {
+            console.warn('NexusWMS: Prevented overwrite of user data during initial sync.');
+            return prev;
+          }
+          return data.inventory || prev;
+        });
+
+        if (data.products) setProducts(data.products);
+
+        setTransactions(prev => {
+          if (transactions.length === 0 && prev.length > 0) return prev;
+          return data.transactions || prev;
+        });
+
+        // Locations usually don't have this race condition as user doesn't "add" them quickly on start,
+        // but safe to keep consistent.
+        if (data.locations) setMasterLocations(data.locations);
+
+        // if (!silent) showAlert('Sync Complete', 'Data successfully loaded from Google Sheets.');
+      }
+    } catch (error: any) {
+      console.error(error);
+      if (!silent) showAlert('Sync Error', error.message || 'Failed to sync with Google Sheets');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // -- Auto-Sync Effect --
+  const isInitializingRef = React.useRef(false);
+
+  useEffect(() => {
+    if (!gasConfig.enabled || !gasConfig.url) return;
+
+    // specific check to avoid syncing initial empty state over cloud state
+    // purely optional but good safety. For now, relying on user action to populate.
+
+    const timer = setTimeout(() => {
+      // Auto-save silently
+      const forceEmpty = isInitializingRef.current;
+      handleSyncGas(true, true, forceEmpty);
+      if (forceEmpty) isInitializingRef.current = false; // Reset flag
+    }, 2000); // 2 second debounce
+
+    return () => clearTimeout(timer);
+  }, [inventory, products, transactions, masterLocations, gasConfig.enabled, gasConfig.url]);
 
   // -- Helpers --
   const logTransaction = (
@@ -152,9 +264,9 @@ function App() {
 
   // -- Permissions Logic --
   const PERMISSIONS: Record<UserRole, ViewState[]> = {
-    ADMIN: ['dashboard', 'entry', 'outbound', 'list', 'map', 'history', 'products', 'settings'],
-    MANAGER: ['dashboard', 'entry', 'outbound', 'list', 'map', 'history', 'products', 'settings'],
-    OPERATOR: ['dashboard', 'entry', 'outbound', 'list', 'map'],
+    ADMIN: ['dashboard', 'entry', 'outbound', 'list', 'map', 'history', 'products', 'settings', 'move'],
+    MANAGER: ['dashboard', 'entry', 'outbound', 'list', 'map', 'history', 'products', 'settings', 'move'],
+    OPERATOR: ['dashboard', 'entry', 'outbound', 'list', 'map', 'move'],
     AUDITOR: ['dashboard', 'list', 'map', 'history'],
     LOGISTICS: ['dashboard', 'list', 'map']
   };
@@ -195,7 +307,6 @@ function App() {
       setInventory(prev => [newItem, ...prev]);
       logTransaction('INBOUND', newItem, newItem.quantity);
     }
-    setView('list');
   };
 
   const handleEditInventory = (item: InventoryItem) => {
@@ -276,6 +387,74 @@ function App() {
     }
   };
 
+  const handleMoveStock = (sourceId: string, destLoc: { rack: string, bay: number, level: string }, qty: number) => {
+    const sourceItem = inventory.find(i => i.id === sourceId);
+    if (!sourceItem) return;
+
+    // Validate again just in case
+    if (qty > sourceItem.quantity) {
+      showAlert('Error', 'Cannot move more than available quantity', 'danger');
+      return;
+    }
+
+    const sourceLocString = `${sourceItem.locations[0].rack}-${sourceItem.locations[0].bay}-${sourceItem.locations[0].level}`;
+    const destLocString = `${destLoc.rack}-${destLoc.bay}-${destLoc.level}`;
+
+    setInventory(prev => {
+      const newInv = [...prev];
+      const sourceIdx = newInv.findIndex(i => i.id === sourceId);
+
+      if (sourceIdx === -1) return prev; // Should not happen
+
+      if (qty === sourceItem.quantity) {
+        // Move Entire Item
+        newInv[sourceIdx] = {
+          ...sourceItem,
+          locations: [destLoc],
+          updatedAt: Date.now()
+        };
+      } else {
+        // Split Item
+        // 1. Reduce Source
+        newInv[sourceIdx] = {
+          ...sourceItem,
+          quantity: sourceItem.quantity - qty,
+          updatedAt: Date.now()
+        };
+
+        // 2. Create Destination Item
+        // Check if item already exists at destination?? 
+        // For simplicity in this model, we create a new entry (batch) or find one to merge?
+        // Let's create new for traceability, or merge if exact same batch logic applies.
+        // Given `id` is unique per entry, creating a new entry is safer for auditing unless we strictly merge same products.
+        // Let's MERGE if picking same product code at same location to avoid fragmentation!
+
+        const existingDestIndex = newInv.findIndex(i =>
+          i.productCode === sourceItem.productCode &&
+          i.locations[0].rack === destLoc.rack &&
+          i.locations[0].bay === destLoc.bay &&
+          i.locations[0].level === destLoc.level
+        );
+
+        if (existingDestIndex >= 0) {
+          newInv[existingDestIndex].quantity += qty;
+          newInv[existingDestIndex].updatedAt = Date.now();
+        } else {
+          newInv.push({
+            ...sourceItem,
+            id: generateId(),
+            quantity: qty,
+            locations: [destLoc],
+            updatedAt: Date.now()
+          });
+        }
+      }
+      return newInv;
+    });
+
+    logTransaction('ADJUSTMENT', sourceItem, 0, `Moved ${qty} ${sourceItem.unit} from ${sourceLocString} to ${destLocString}`);
+  };
+
   const switchRole = (role: UserRole) => {
     setCurrentUser({ name: `${ROLES[role].label} User`, role });
     setShowRoleSwitcher(false);
@@ -311,6 +490,35 @@ function App() {
     return inventorySummary.filter(item => item.minStockLevel > 0 && item.qty < item.minStockLevel);
   }, [inventorySummary]);
 
+  // -- Dashboard Calculations --
+
+  // Top Movers: Most outbound quantity in persistent history
+  const topMovers = useMemo(() => {
+    const counts: Record<string, number> = {};
+    transactions
+      .filter(t => t.type === 'OUTBOUND')
+      .forEach(t => {
+        counts[t.productCode] = (counts[t.productCode] || 0) + Math.abs(t.quantity);
+      });
+
+    return Object.entries(counts)
+      .map(([code, qty]) => {
+        const product = products.find(p => p.code === code);
+        return { code, name: product?.name || code, qty, unit: product?.defaultUnit || 'pcs' };
+      })
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 5);
+  }, [transactions, products]);
+
+  // Dead Stock: Items not moved in 30 days (simplified to just check last update time per batch)
+  const deadStock = useMemo(() => {
+    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    return inventory
+      .filter(i => i.updatedAt < thirtyDaysAgo)
+      .sort((a, b) => a.updatedAt - b.updatedAt) // Oldest first
+      .slice(0, 5);
+  }, [inventory]);
+
   const SidebarItem = ({ id, icon: Icon, label, alert }: { id: ViewState, icon: any, label: string, alert?: boolean }) => {
     if (!hasAccess(id)) return null;
 
@@ -336,7 +544,7 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen bg-[url('https://images.unsplash.com/photo-1534375971785-5c1826f739d8?q=80&w=2670&auto=format&fit=crop')] bg-cover bg-center text-slate-100 relative">
+    <div className="flex h-screen bg-[url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=2670&auto=format&fit=crop')] bg-cover bg-center text-slate-100 relative">
       <div className="absolute inset-0 bg-background/90 backdrop-blur-sm"></div>
 
       {/* Mobile Sidebar Overlay */}
@@ -368,6 +576,7 @@ function App() {
                 <SidebarItem id="dashboard" icon={LayoutDashboard} label="Dashboard" alert={lowStockItems.length > 0} />
                 <SidebarItem id="entry" icon={PackagePlus} label="Inbound" />
                 <SidebarItem id="outbound" icon={PackageMinus} label="Outbound" />
+                <SidebarItem id="move" icon={ArrowRightLeft} label="Move Stock" />
                 <div className="my-6"></div>
               </>
             )}
@@ -388,7 +597,7 @@ function App() {
               <>
                 <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Master Data</p>
                 <SidebarItem id="products" icon={Boxes} label="Products" />
-                <SidebarItem id="settings" icon={Settings} label="Data Settings" />
+                <SidebarItem id="settings" icon={Settings} label="System Settings" />
                 <div className="my-4 border-t border-slate-100"></div>
               </>
             )}
@@ -505,6 +714,66 @@ function App() {
                   </p>
                 </div>
               </div>
+
+              {/* Advanced Metrics Row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Top Movers */}
+                <div className="bg-slate-900/40 p-6 rounded-xl border border-white/5">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2 font-display">
+                    <Tag className="w-5 h-5 text-green-400" /> Top Movers
+                  </h3>
+                  <div className="space-y-3">
+                    {topMovers.length === 0 ? (
+                      <p className="text-slate-500 text-sm italic">No outbound data yet.</p>
+                    ) : (
+                      topMovers.map((item, idx) => (
+                        <div key={item.code} className="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg border border-white/5">
+                          <div className="flex items-center gap-3">
+                            <span className="text-slate-500 font-mono text-sm font-bold">#{idx + 1}</span>
+                            <div>
+                              <p className="font-bold text-slate-200 text-sm">{item.name}</p>
+                              <p className="text-xs text-slate-500 font-mono">{item.code}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-green-400">{item.qty.toLocaleString()}</p>
+                            <p className="text-[10px] text-slate-500 uppercase">{item.unit}</p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Dead Stock */}
+                <div className="bg-slate-900/40 p-6 rounded-xl border border-white/5">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2 font-display">
+                    <AlertTriangle className="w-5 h-5 text-amber-500" /> Stagnant Stock (30d+)
+                  </h3>
+                  <div className="space-y-3">
+                    {deadStock.length === 0 ? (
+                      <p className="text-slate-500 text-sm italic">Inventory is moving nicely!</p>
+                    ) : (
+                      deadStock.map((item) => (
+                        <div key={item.id} className="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg border border-white/5">
+                          <div>
+                            <p className="font-bold text-slate-200 text-sm">{item.productName}</p>
+                            <p className="text-xs text-slate-500 font-mono flex gap-2">
+                              <span>{item.productCode}</span>
+                              <span className="text-amber-500/80">• {Math.floor((Date.now() - item.updatedAt) / (1000 * 60 * 60 * 24))}d old</span>
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <div className="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-1 rounded text-xs font-bold">
+                              {item.locations.map(l => `${l.rack}-${l.bay}`).join(', ')}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -529,6 +798,17 @@ function App() {
               inventory={inventory}
               onProcess={handleOutboundProcess}
               onCancel={() => setView('dashboard')}
+              savedPickLists={savedPickLists}
+              onSaveList={(name, items) => {
+                const newList: SavedPickList = {
+                  id: generateId(),
+                  name,
+                  items,
+                  createdAt: Date.now()
+                };
+                setSavedPickLists(prev => [...prev, newList]);
+              }}
+              onDeleteList={(id) => setSavedPickLists(prev => prev.filter(l => l.id !== id))}
             />
           )}
 
@@ -556,21 +836,67 @@ function App() {
           {view === 'products' && hasAccess('products') && (
             <ProductPage
               products={products}
-              onUpdateProducts={setProducts}
+              onUpdateProducts={(newProducts) => {
+                // Detect changes to propagate (Cascading Update)
+                newProducts.forEach(newP => {
+                  const oldP = products.find(p => p.id === newP.id);
+                  if (oldP && oldP.code !== newP.code) {
+                    // 1. Update Inventory
+                    setInventory(prev => prev.map(item =>
+                      item.productId === newP.id || item.productCode === oldP.code // Check both ID and Code for safety
+                        ? { ...item, productCode: newP.code, productName: newP.name, productId: newP.id }
+                        : item
+                    ));
+
+                    // 2. Update History (Transactions)
+                    setTransactions(prev => prev.map(tx =>
+                      tx.productCode === oldP.code
+                        ? { ...tx, productCode: newP.code, productName: newP.name }
+                        : tx
+                    ));
+
+                    console.log(`NexusWMS: Cascaded rename from ${oldP.code} to ${newP.code}`);
+
+                    // 3. Update Saved Pick Lists
+                    setSavedPickLists(prev => prev.map(list => ({
+                      ...list,
+                      items: list.items.map(item =>
+                        item.productCode === oldP.code
+                          ? { ...item, productCode: newP.code }
+                          : item
+                      )
+                    })));
+                  }
+                });
+
+                setProducts(newProducts);
+              }}
             />
           )}
 
-          {/* Settings / Data View */}
+          {/* Settings View */}
           {view === 'settings' && hasAccess('settings') && (
             <SettingsPage
-              inventory={inventory}
+              gasConfig={gasConfig}
+              onSyncGas={() => handleSyncGas(true, false)} // Force manual sync
+              isSyncing={isSyncing}
+              onInitializeApp={() => {
+                isInitializingRef.current = true; // Allow wiping cloud data
+                setTransactions([]);
+                setInventory([]);
+                showAlert('App Initialized', 'History and Stock are now empty.', 'info');
+              }}
+            />
+          )}
+
+          {/* Stock Movement View */}
+          {view === 'move' && (
+            <StockMovementForm
               products={products}
-              transactions={transactions}
-              locations={masterLocations}
-              onImportInventory={setInventory}
-              onImportProducts={setProducts}
-              onImportTransactions={setTransactions}
-              onImportLocations={setMasterLocations}
+              inventory={inventory}
+              masterLocations={masterLocations}
+              onMove={handleMoveStock}
+              onCancel={() => setView('dashboard')}
             />
           )}
 

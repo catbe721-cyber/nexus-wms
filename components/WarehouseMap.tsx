@@ -491,26 +491,28 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
 
                                                 {/* Move View */}
                                                 {movingItemId === item.id && (
-                                                    <div className="mt-2 bg-purple-50 p-2 rounded border border-purple-200">
-                                                        <div className="text-xs font-bold text-purple-800 mb-1 flex items-center gap-1">
+                                                    <div className="mt-2 bg-slate-900/80 p-3 rounded border border-purple-500/30 shadow-inner">
+                                                        <div className="text-xs font-bold text-purple-400 mb-2 flex items-center gap-1">
                                                             <Layers className="w-3 h-3" /> Move Item
                                                         </div>
 
                                                         {/* Move Mode Toggle */}
-                                                        <div className="flex gap-2 mb-2 text-xs">
-                                                            <label className="flex items-center gap-1 cursor-pointer">
+                                                        <div className="flex gap-4 mb-3 text-xs text-slate-300">
+                                                            <label className="flex items-center gap-2 cursor-pointer hover:text-white">
                                                                 <input
                                                                     type="radio"
                                                                     checked={moveMode === 'FULL'}
                                                                     onChange={() => { setMoveMode('FULL'); setMoveQty(item.quantity); }}
+                                                                    className="accent-purple-500"
                                                                 />
                                                                 Full ({item.quantity})
                                                             </label>
-                                                            <label className="flex items-center gap-1 cursor-pointer">
+                                                            <label className="flex items-center gap-2 cursor-pointer hover:text-white">
                                                                 <input
                                                                     type="radio"
                                                                     checked={moveMode === 'PARTIAL'}
                                                                     onChange={() => { setMoveMode('PARTIAL'); setMoveQty(Math.floor(item.quantity / 2) || 1); }}
+                                                                    className="accent-purple-500"
                                                                 />
                                                                 Partial
                                                             </label>
@@ -525,18 +527,18 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                                                                     max={item.quantity}
                                                                     value={moveQty}
                                                                     onChange={(e) => setMoveQty(Math.min(parseInt(e.target.value) || 0, item.quantity))}
-                                                                    className="w-full px-2 py-1 text-xs border border-purple-300 rounded focus:ring-1 focus:ring-purple-500"
+                                                                    className="w-full px-2 py-1.5 text-xs border border-purple-500/30 rounded focus:ring-1 focus:ring-purple-500 bg-slate-950 text-white placeholder-slate-500"
                                                                     placeholder="Qty to move"
                                                                 />
                                                             </div>
                                                         )}
 
-                                                        <div className="text-xs text-slate-500 mb-1">To Location:</div>
-                                                        <div className="flex gap-1 mb-2">
+                                                        <div className="text-[10px] text-slate-400 mb-1 uppercase tracking-wider font-bold">To Location</div>
+                                                        <div className="flex gap-1 mb-3">
                                                             <select
                                                                 value={moveDest.rack}
                                                                 onChange={(e) => setMoveDest({ ...moveDest, rack: e.target.value })}
-                                                                className="w-16 px-1 py-1 text-xs border rounded"
+                                                                className="w-16 px-1 py-1.5 text-xs border border-white/10 rounded bg-slate-950 text-white focus:border-purple-500 outline-none"
                                                             >
                                                                 {Object.keys(AREA_CONFIG).map(r => <option key={r} value={r}>{r}</option>)}
                                                             </select>
@@ -548,21 +550,21 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                                                                 max={AREA_CONFIG[moveDest.rack]?.bays || 12}
                                                                 value={moveDest.bay}
                                                                 onChange={(e) => setMoveDest({ ...moveDest, bay: parseInt(e.target.value) || 1 })}
-                                                                className="w-12 px-1 py-1 text-xs border rounded"
+                                                                className="w-12 px-1 py-1.5 text-xs border border-white/10 rounded bg-slate-950 text-white focus:border-purple-500 outline-none"
                                                                 title={`1-${AREA_CONFIG[moveDest.rack]?.bays}`}
                                                             />
 
                                                             <select
                                                                 value={moveDest.level}
                                                                 onChange={(e) => setMoveDest({ ...moveDest, level: e.target.value })}
-                                                                className="w-16 px-1 py-1 text-xs border rounded"
+                                                                className="w-16 px-1 py-1.5 text-xs border border-white/10 rounded bg-slate-950 text-white focus:border-purple-500 outline-none"
                                                             >
                                                                 {AREA_CONFIG[moveDest.rack]?.levels.map(l => <option key={l} value={l}>{l === 'Floor' ? 'Flr' : l}</option>)}
                                                             </select>
                                                         </div>
                                                         <div className="flex gap-2">
-                                                            <button onClick={() => handleMoveConfirm(item)} className="flex-1 bg-purple-600 text-white text-xs py-1 rounded hover:bg-purple-700">Confirm</button>
-                                                            <button onClick={() => setMovingItemId(null)} className="flex-1 bg-slate-200 text-slate-700 text-xs py-1 rounded hover:bg-slate-300">Cancel</button>
+                                                            <button onClick={() => handleMoveConfirm(item)} className="flex-1 bg-purple-600 text-white text-xs py-1.5 rounded hover:bg-purple-500 transition-colors font-bold shadow-lg shadow-purple-900/20">Confirm</button>
+                                                            <button onClick={() => setMovingItemId(null)} className="flex-1 bg-slate-800 text-slate-300 text-xs py-1.5 rounded hover:bg-slate-700 transition-colors border border-white/5">Cancel</button>
                                                         </div>
                                                     </div>
                                                 )}

@@ -63,6 +63,13 @@ export interface Transaction {
   notes?: string;
 }
 
+export interface SavedPickList {
+  id: string;
+  name: string;
+  items: { productCode: string; qty: number }[];
+  createdAt: number;
+}
+
 export const STANDARD_RACKS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J'];
 
 // Define Area Dimensions
@@ -79,7 +86,7 @@ export const ALL_AREAS = Object.keys(AREA_CONFIG);
 export const BAYS_PER_RACK = 12; // Legacy fallback
 export const LEVELS = ['3', '2', '1', 'Floor']; // Legacy fallback
 
-export type ViewState = 'dashboard' | 'entry' | 'outbound' | 'list' | 'history' | 'map' | 'products' | 'settings';
+export type ViewState = 'dashboard' | 'entry' | 'outbound' | 'list' | 'history' | 'map' | 'products' | 'settings' | 'move';
 
 // Utility for safe ID generation
 export const generateId = () => {
