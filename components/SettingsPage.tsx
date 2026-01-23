@@ -86,10 +86,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ gasConfig, onSyncGas, isSyn
                 className="w-full flex items-center justify-center gap-2 p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-900/20"
               >
                 <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                {isSyncing ? 'Syncing...' : 'Force Sync Now'}
+                {isSyncing ? 'Syncing...' : 'Reload from Cloud'}
               </button>
               <p className="text-xs text-slate-500 mt-2 text-center">
-                System automatically syncs changes every 2 seconds. Use this to force a manual refresh.
+                System auto-saves changes. Use this to refresh data from Google Sheets.
               </p>
             </div>
           </div>

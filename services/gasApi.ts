@@ -19,6 +19,7 @@ export const GASService = {
         // Handle cases where URL might already have params
         const fetchUrl = new URL(cleanUrl);
         fetchUrl.searchParams.append('action', 'getAll');
+        fetchUrl.searchParams.append('_t', Date.now().toString()); // Prevent caching
 
         const response = await fetch(fetchUrl.toString(), {
             method: 'GET',

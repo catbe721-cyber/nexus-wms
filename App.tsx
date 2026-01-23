@@ -181,9 +181,11 @@ function App() {
         // Pull Mode: Load from Cloud
         const data = await GASService.fetchData(gasConfig.url);
 
-        // Critical Race Condition Fix:
         // If the user added items *while* we were fetching data (e.g., initial load race),
         // we must NOT overwrite their new work with potentially empty/stale cloud data.
+
+        // Mark initial sync as done effectively, allowing future auto-saves
+        isInitialSyncDone.current = true;
 
         setInventory(prev => {
           // If we started with empty inventory (inventory.length === 0 captured in closure)
@@ -217,19 +219,18 @@ function App() {
   };
 
   // -- Auto-Sync Effect --
-  const isInitializingRef = React.useRef(false);
+  const isInitialSyncDone = React.useRef(false);
 
   useEffect(() => {
     if (!gasConfig.enabled || !gasConfig.url) return;
 
-    // specific check to avoid syncing initial empty state over cloud state
-    // purely optional but good safety. For now, relying on user action to populate.
+    // BLOCKER: Do not auto-sync (push) until we have successfully pulled at least once.
+    // This prevents overwriting cloud data with stale/empty local data on load.
+    if (!isInitialSyncDone.current) return;
 
     const timer = setTimeout(() => {
       // Auto-save silently
-      const forceEmpty = isInitializingRef.current;
-      handleSyncGas(true, true, forceEmpty);
-      if (forceEmpty) isInitializingRef.current = false; // Reset flag
+      handleSyncGas(true, true);
     }, 2000); // 2 second debounce
 
     return () => clearTimeout(timer);
@@ -885,10 +886,11 @@ function App() {
           {view === 'settings' && hasAccess('settings') && (
             <SettingsPage
               gasConfig={gasConfig}
-              onSyncGas={() => handleSyncGas(true, false)} // Force manual sync
+              onSyncGas={() => handleSyncGas(false, false)} // Manual Pull (Refresh) from Cloud
               isSyncing={isSyncing}
               onInitializeApp={() => {
-                isInitializingRef.current = true; // Use this to allow pushing empty state
+                // isInitializingRef was removed, but we want to allow this specific manual flush
+                isInitialSyncDone.current = true;
                 setTransactions([]);
                 setInventory([]);
                 // Also clear location override if needed, but masterLocations usually static?

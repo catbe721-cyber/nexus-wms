@@ -103,39 +103,53 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
     return plan;
   }, [cart, inventory]);
 
-  // 3. Filtered Products (Prioritizing Name)
+  // 3. Filtered Products (Search LIVE INVENTORY, not just Product Master)
   const filteredProducts = useMemo(() => {
     if (!searchTerm) return [];
 
-    // Get set of available product codes
-    const availableProductCodes = new Set(
-      inventory.filter(i => i.quantity > 0).map(i => i.productCode)
-    );
-
     const term = searchTerm.toLowerCase();
-    return products
-      .filter(p => p.productCode && p.name && (
-        p.productCode.toLowerCase().includes(term) || p.name.toLowerCase().includes(term)
-      ))
-      // Filter by availability
-      .filter(p => availableProductCodes.has(p.productCode))
-      .sort((a, b) => {
-        const aName = (a.name || '').toLowerCase();
-        const bName = (b.name || '').toLowerCase();
 
-        // Priority 1: Name starts with term
+    // Group inventory by Product Code to show unique options
+    // We prioritize the "Product Master" info if it exists, otherwise fall back to Inventory data
+    const matches = new Map<string, Product>();
+
+    inventory.forEach(item => {
+      // search match?
+      const code = item.productCode.toLowerCase();
+      const name = item.productName.toLowerCase();
+
+      if (code.includes(term) || name.includes(term)) {
+        if (!matches.has(item.productCode)) {
+          // Try to find full product details
+          const masterConfig = products.find(p => p.productCode === item.productCode);
+          if (masterConfig) {
+            matches.set(item.productCode, masterConfig);
+          } else {
+            // "Orphan" item - create transient product object
+            matches.set(item.productCode, {
+              id: item.productCode, // temporary id
+              productCode: item.productCode,
+              name: item.productName,
+              defaultCategory: item.category,
+              defaultUnit: item.unit,
+              minStockLevel: 0
+            });
+          }
+        }
+      }
+    });
+
+    return Array.from(matches.values())
+      .sort((a, b) => {
+        // Sort by name match, then code
+        const aName = a.name.toLowerCase();
+        const bName = b.name.toLowerCase();
         if (aName.startsWith(term) && !bName.startsWith(term)) return -1;
         if (!aName.startsWith(term) && bName.startsWith(term)) return 1;
-
-        // Priority 2: Code starts with term
-        const aCode = (a.productCode || '').toLowerCase();
-        const bCode = (b.productCode || '').toLowerCase();
-        if (aCode.startsWith(term) && !bCode.startsWith(term)) return -1;
-        if (!aCode.startsWith(term) && bCode.startsWith(term)) return 1;
-
-        return 0; // Default filter order
+        return aName.localeCompare(bName);
       })
       .slice(0, 10);
+
   }, [searchTerm, products, inventory]);
 
 
