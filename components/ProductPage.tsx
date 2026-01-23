@@ -92,6 +92,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
         try {
           const text = evt.target?.result as string;
           const rows = parseCSVLine(text);
+
           const newProducts: Product[] = [];
 
           const startIndex = rows[0]?.[0]?.toLowerCase().includes('no.') ? 1 : 0;
@@ -103,26 +104,26 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
             const code = row[0];
             const name = row[1];
 
-            const existing = products.find(p => p.code === code);
+            // Check against existing products by productCode
+            const existing = products.find(p => p.productCode === code);
 
-            if (code && name) {
+            if (code && name && !existing) {
               newProducts.push({
-                id: existing?.id || generateId(),
-                code,
+                productCode: code,
                 name,
                 defaultCategory: row[4] || 'OTH',
                 postingGroup: row[5] || '',
                 defaultUnit: row[7] || 'pcs',
-                minStockLevel: existing?.minStockLevel || 0
+                minStockLevel: 0
               });
             }
           }
 
           if (newProducts.length > 0) {
-            const codesInImport = new Set(newProducts.map(p => p.code));
-            const productsToKeep = products.filter(p => !codesInImport.has(p.code));
-            onUpdateProducts([...productsToKeep, ...newProducts]);
-            showAlert("Success", `Successfully processed ${newProducts.length} products.`);
+            onUpdateProducts([...products, ...newProducts]);
+            showAlert("Success", `Successfully processed ${newProducts.length} new products.`);
+          } else {
+            showAlert("Info", "No new products found in file.");
           }
         } catch (err) {
           console.error(err);
@@ -141,7 +142,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
     } else {
       setEditingProduct(null);
       setFormData({
-        code: '',
+        productCode: '',
         name: '',
         defaultCategory: '',
         postingGroup: '',
@@ -152,24 +153,24 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string, code: string) => {
+  const handleDelete = (code: string) => {
     showConfirm(
       "Delete Product",
       `Are you sure you want to delete product '${code}'?`,
-      () => onUpdateProducts(products.filter(p => p.id !== id)),
+      () => onUpdateProducts(products.filter(p => p.productCode !== code)),
       'danger'
     );
   };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.code || !formData.name) {
+    if (!formData.productCode || !formData.name) {
       showAlert("Validation Error", "Code and Name are required.");
       return;
     }
 
     // Check Duplicate Code
-    const isDuplicate = products.some(p => p.code === formData.code && p.id !== editingProduct?.id);
+    const isDuplicate = products.some(p => p.productCode === formData.productCode && p.productCode !== editingProduct?.productCode);
     if (isDuplicate) {
       showAlert("Duplicate Code", "Product Code must be unique.");
       return;
@@ -177,11 +178,11 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
 
     if (editingProduct) {
       // Update
-      const updatedList = products.map(p => p.id === editingProduct.id ? { ...formData, id: editingProduct.id } as Product : p);
+      const updatedList = products.map(p => p.productCode === editingProduct.productCode ? { ...formData } as Product : p);
       onUpdateProducts(updatedList);
     } else {
       // Create
-      const newProduct = { ...formData, id: generateId() } as Product;
+      const newProduct = { ...formData } as Product;
       onUpdateProducts([...products, newProduct]);
     }
     setIsModalOpen(false);
@@ -199,8 +200,8 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
   };
 
   const filteredProducts = products.filter(p =>
-    p.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+    (p.productCode || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -262,8 +263,8 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
             </thead>
             <tbody className="divide-y divide-white/5">
               {filteredProducts.map(p => (
-                <tr key={p.id} className="hover:bg-white/5 transition-colors group">
-                  <td className="px-6 py-3 font-mono text-slate-500 font-medium tracking-wide">{p.code}</td>
+                <tr key={p.productCode} className="hover:bg-white/5 transition-colors group">
+                  <td className="px-6 py-3 font-mono text-slate-500 font-medium tracking-wide">{p.productCode}</td>
                   <td className="px-6 py-3 text-slate-200">{p.name}</td>
                   <td className="px-6 py-3">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${getCategoryColor(p.defaultCategory || '')}`}>
@@ -290,7 +291,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(p.id, p.code)}
+                        onClick={() => handleDelete(p.productCode)}
                         className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
                         title="Delete"
                       >
@@ -332,8 +333,8 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
                   <input
                     type="text"
                     required
-                    value={formData.code}
-                    onChange={e => setFormData({ ...formData, code: e.target.value })}
+                    value={formData.productCode}
+                    onChange={e => setFormData({ ...formData, productCode: e.target.value })}
                     className="w-full px-3 py-2 border border-white/10 bg-black/40 rounded-lg text-white focus:ring-2 focus:ring-primary outline-none placeholder-slate-600"
                   />
                 </div>

@@ -36,12 +36,12 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
     setModalConfig({ isOpen: true, title, message, type });
   };
 
+
   // Initialize form if initialData is provided (Edit Mode)
   useEffect(() => {
     if (initialData) {
-      const product = products.find(p => p.code === initialData.productCode) || {
-        id: initialData.productId,
-        code: initialData.productCode,
+      const product = products.find(p => p.productCode === initialData.productCode) || {
+        productCode: initialData.productCode,
         name: initialData.productName,
         defaultCategory: initialData.category,
         defaultUnit: initialData.unit
@@ -69,39 +69,63 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
 
   // Filter products based on search
   const filteredProducts = products.filter(p =>
-    p.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+    (p.productCode || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.name || '').toLowerCase().includes(searchTerm.toLowerCase())
   ).slice(0, 10);
 
   // Filter Locations Logic
   const filteredLocations = useMemo(() => {
     if (!locationSearch) return [];
 
-    // Normalize search term: remove non-alphanumeric to match "A11" against "A-1-1"
-    const cleanSearch = locationSearch.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    const cleanSearch = locationSearch.trim().toLowerCase();
+    const searchNoSpaces = cleanSearch.replace(/\s+/g, '');
+
+    // Specific triggers
+    const isStgSearch = cleanSearch.startsWith('s');
+    const isAdjSearch = cleanSearch.startsWith('ad');
 
     return masterLocations.filter(loc => {
-      // Defensive checks to prevent rendering crashes
-      if (!loc || !loc.code) return false;
+      // Defensive checks
+      if (!loc || !loc.binCode) return false;
 
-      // Create search keys
-      const codeStr = String(loc.code);
-      const rackStr = loc.rack ? String(loc.rack).toLowerCase() : '';
+      const rackLower = loc.rack ? loc.rack.toLowerCase() : '';
+
+      // 1. Handling Special Areas (STG, ADJ)
+      if (rackLower.startsWith('stg')) {
+        // Only show STG if user explicitly starts typing S...
+        return isStgSearch;
+      }
+      if (rackLower.startsWith('adj')) {
+        // Only show ADJ if user explicitly starts typing AD...
+        return isAdjSearch;
+      }
+
+      // 2. Handling Standard Racks
+      // Smart fuzzy matching for "G11" -> "G-01-1"
+      const bayNum = loc.bay;
+      const bayStr = String(bayNum); // "1", "11"
+      const bayPad = String(bayNum).padStart(2, '0'); // "01", "11"
       const levelStr = loc.level ? String(loc.level).toLowerCase() : '';
-      const bayStr = loc.bay ? String(loc.bay) : '';
 
-      const cleanCode = codeStr.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-      const shortHand = `${rackStr}${bayStr}${levelStr}`; // e.g. a11
+      const variants = [
+        // Standard "Rack-Bay-Level" (G-01-1)
+        loc.binCode.toLowerCase(),
+        // Shorthand simplified (g011)
+        `${rackLower}${bayPad}${levelStr}`,
+        // Compact shorthand (g11 -> matches G-01-1)
+        `${rackLower}${bayStr}${levelStr}`,
+        // Just the components (g11 also in here potentially)
+        `${rackLower}${bayStr}`
+      ];
 
-      return cleanCode.includes(cleanSearch) ||
-        shortHand.includes(cleanSearch) ||
-        codeStr.toLowerCase().includes(locationSearch.toLowerCase());
+      return variants.some(v => v.includes(searchNoSpaces));
+
     }).slice(0, 8);
   }, [locationSearch, masterLocations]);
 
   const handleSelectProduct = (product: Product) => {
     setSelectedProduct(product);
-    setSearchTerm(`${product.code} - ${product.name}`);
+    setSearchTerm(`${product.productCode} - ${product.name}`);
     if (!initialData) {
       setCategory(product.defaultCategory || 'OTH');
       setUnit(product.defaultUnit || 'pcs');
@@ -131,14 +155,13 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
       return;
     }
 
-    // Auto-assign to Staging if no location provided
+    // Auto-assign to Staging R1 if no location provided
     const finalLocations = locations.length > 0
       ? locations
-      : [{ rack: 'STG', bay: 1, level: 'Floor' }];
+      : [{ rack: 'STG-01', bay: 1, level: 'Floor' }];
 
     onSave({
-      productId: selectedProduct.id,
-      productCode: selectedProduct.code,
+      productCode: selectedProduct.productCode,
       productName: selectedProduct.name,
       quantity,
       unit,
@@ -153,10 +176,6 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
     if (!initialData) {
       // Only reset if it's a new entry (not editing existing)
       setQuantity(0);
-      // Keep product selected? User might be receiving multiple batches of same product.
-      // Or reset everything? Standard WMS usually keeps product context or clears all.
-      // Let's clear product to allow rapid entry of DIFFERENT items, but maybe user wants same?
-      // Let's clear everything for cleanliness as per "Clean Slate" usually preferred.
       setSelectedProduct(null);
       setSearchTerm('');
       setLocations([]);
@@ -197,7 +216,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
-              if (selectedProduct && e.target.value !== `${selectedProduct.code} - ${selectedProduct.name}`) {
+              if (selectedProduct && e.target.value !== `${selectedProduct.productCode} - ${selectedProduct.name}`) {
                 setSelectedProduct(null); // Reset selection if typing new search
               }
             }}
@@ -212,13 +231,13 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
             <div className="absolute z-50 w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
               {filteredProducts.map(p => (
                 <div
-                  key={p.id}
+                  key={p.productCode}
                   onClick={() => handleSelectProduct(p)}
                   className="px-4 py-2 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0"
                 >
                   <span className="font-bold text-slate-200">{p.name}</span>
                   <br />
-                  <span className="text-xs text-slate-500">{p.code}</span>
+                  <span className="text-xs text-slate-500">{p.productCode}</span>
                 </div>
               ))}
             </div>
@@ -230,6 +249,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
             <label className="block text-sm font-bold text-slate-400 mb-1 uppercase tracking-wider">Quantity</label>
             <input
               type="number"
+              inputMode="decimal"
               min="0"
               value={quantity}
               onChange={(e) => setQuantity(parseFloat(e.target.value))}
@@ -260,11 +280,11 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
           </div>
         </div>
 
-        {selectedProduct && selectedProduct.postingGroup && (
+        {selectedProduct && selectedProduct.postingGroup ? (
           <div className="text-xs text-slate-400 bg-slate-800 p-2 rounded border border-white/10">
             Posting Group: <span className="font-medium text-slate-300">{selectedProduct.postingGroup}</span>
           </div>
-        )}
+        ) : null}
 
         {/* Location Manager */}
         <div className="border border-white/10 rounded-lg p-4 bg-black/20">
@@ -299,11 +319,11 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
               <div className="absolute z-10 w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
                 {filteredLocations.map(loc => (
                   <div
-                    key={loc.id}
+                    key={loc.binCode}
                     onClick={() => handleAddLocation(loc)}
                     className="px-4 py-2 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0 flex justify-between items-center"
                   >
-                    <span className="font-bold text-slate-200 font-mono">{loc.code}</span>
+                    <span className="font-bold text-slate-200 font-mono">{loc.binCode}</span>
                     <span className="text-xs text-slate-500">Rack {loc.rack} • Bay {loc.bay} • Level {loc.level}</span>
                   </div>
                 ))}
@@ -319,7 +339,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
           <div className="flex flex-wrap gap-2">
             {locations.length === 0 && <span className="text-sm text-slate-500 italic">No specific bins selected. Will default to Staging.</span>}
             {locations.map((loc, idx) => (
-              <div key={idx} className={`border rounded-full px-3 py-1 text-sm flex items-center gap-2 shadow-sm ${loc.rack === 'STG' ? 'bg-amber-900/30 border-amber-700/50 text-amber-200' : 'bg-slate-800 border-slate-600 text-slate-300'}`}>
+              <div key={idx} className={`border rounded-full px-3 py-1 text-sm flex items-center gap-2 shadow-sm ${loc.rack.startsWith('STG') ? 'bg-amber-900/30 border-amber-700/50 text-amber-200' : 'bg-slate-800 border-slate-600 text-slate-300'}`}>
                 <span className="font-bold font-mono">
                   {`${loc.rack}-${loc.bay}-${loc.level}`}
                 </span>

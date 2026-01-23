@@ -57,13 +57,13 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
       .reduce((acc, i) => acc + i.quantity, 0);
 
     const inCart = cart
-      .filter(c => c.product.code === productCode)
+      .filter(c => c.product.productCode === productCode)
       .reduce((acc, c) => acc + c.requestQty, 0);
 
     return Math.max(0, totalPhysical - inCart);
   };
 
-  const currentAvailable = selectedProduct ? getProductAvailability(selectedProduct.code) : 0;
+  const currentAvailable = selectedProduct ? getProductAvailability(selectedProduct.productCode) : 0;
 
   // 2. Generate the "Pick Plan" (The precise breakdown of WHICH items to remove)
   const pickPlan = useMemo(() => {
@@ -77,7 +77,7 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
     cart.forEach(cartItem => {
       // Find matching physical items, sorted by priority (FIFO/Location)
       const auditItems = inventory
-        .filter(i => i.productCode === cartItem.product.code)
+        .filter(i => i.productCode === cartItem.product.productCode)
         .sort((a, b) => getBestLocationScore(a.locations) - getBestLocationScore(b.locations));
 
       let remaining = cartItem.requestQty;
@@ -106,24 +106,37 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
   // 3. Filtered Products (Prioritizing Name)
   const filteredProducts = useMemo(() => {
     if (!searchTerm) return [];
+
+    // Get set of available product codes
+    const availableProductCodes = new Set(
+      inventory.filter(i => i.quantity > 0).map(i => i.productCode)
+    );
+
     const term = searchTerm.toLowerCase();
     return products
-      .filter(p => p.code.toLowerCase().includes(term) || p.name.toLowerCase().includes(term))
+      .filter(p => p.productCode && p.name && (
+        p.productCode.toLowerCase().includes(term) || p.name.toLowerCase().includes(term)
+      ))
+      // Filter by availability
+      .filter(p => availableProductCodes.has(p.productCode))
       .sort((a, b) => {
-        const aName = a.name.toLowerCase();
-        const bName = b.name.toLowerCase();
+        const aName = (a.name || '').toLowerCase();
+        const bName = (b.name || '').toLowerCase();
+
         // Priority 1: Name starts with term
         if (aName.startsWith(term) && !bName.startsWith(term)) return -1;
         if (!aName.startsWith(term) && bName.startsWith(term)) return 1;
+
         // Priority 2: Code starts with term
-        const aCode = a.code.toLowerCase();
-        const bCode = b.code.toLowerCase();
+        const aCode = (a.productCode || '').toLowerCase();
+        const bCode = (b.productCode || '').toLowerCase();
         if (aCode.startsWith(term) && !bCode.startsWith(term)) return -1;
         if (!aCode.startsWith(term) && bCode.startsWith(term)) return 1;
+
         return 0; // Default filter order
       })
       .slice(0, 10);
-  }, [searchTerm, products]);
+  }, [searchTerm, products, inventory]);
 
 
   // --- Handlers ---
@@ -144,9 +157,9 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
 
     // Add to cart (Merge if exists, or add new)
     setCart(prev => {
-      const existing = prev.find(c => c.product.code === selectedProduct.code);
+      const existing = prev.find(c => c.product.productCode === selectedProduct.productCode);
       if (existing) {
-        return prev.map(c => c.product.code === selectedProduct.code ? { ...c, requestQty: c.requestQty + requestQty } : c);
+        return prev.map(c => c.product.productCode === selectedProduct.productCode ? { ...c, requestQty: c.requestQty + requestQty } : c);
       }
       return [...prev, { product: selectedProduct, requestQty }];
     });
@@ -179,7 +192,7 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
 
   const handleSaveList = () => {
     if (!newListName.trim()) return;
-    const items = cart.map(c => ({ productCode: c.product.code, qty: c.requestQty }));
+    const items = cart.map(c => ({ productCode: c.product.productCode, qty: c.requestQty }));
     onSaveList(newListName, items);
     setShowSaveModal(false);
     setNewListName('');
@@ -190,7 +203,7 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
     // We need to look up the Product object for each code
     const newCart: CartItem[] = [];
     list.items.forEach(item => {
-      const product = products.find(p => p.code === item.productCode);
+      const product = products.find(p => p.productCode === item.productCode);
       if (product) {
         newCart.push({ product, requestQty: item.qty });
       }
@@ -257,7 +270,7 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
                     className="px-4 py-3 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0"
                   >
                     <span className="font-bold text-slate-200 block text-md">{p.name}</span>
-                    <span className="text-slate-500 text-xs font-mono">{p.code}</span>
+                    <span className="text-slate-500 text-xs font-mono">{p.productCode}</span>
                   </div>
                 ))}
               </div>
@@ -276,7 +289,7 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
                   <span className="text-sm text-slate-400 font-bold">{selectedProduct.defaultUnit}</span>
                 </div>
                 <div className="mt-1 text-xs text-slate-500 font-mono">
-                  {selectedProduct.code}
+                  {selectedProduct.productCode}
                 </div>
               </div>
 
@@ -285,6 +298,7 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
                 <div className="flex gap-2">
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="1"
                     max={currentAvailable}
                     value={requestQty}
@@ -341,14 +355,14 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
                 <div key={idx} className="bg-slate-800/40 p-3 rounded-lg border border-white/5 flex items-center justify-between group hover:border-primary/30 transition-colors">
                   <div>
                     <p className="font-bold text-slate-200">{c.product.name}</p>
-                    <p className="text-xs text-slate-500 font-mono">{c.product.code}</p>
+                    <p className="text-xs text-slate-500 font-mono">{c.product.productCode}</p>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                       <input
                         type="number"
                         min="1"
-                        max={getProductAvailability(c.product.code) + c.requestQty} // Allow editing up to total available + what's already in this cart slot
+                        max={getProductAvailability(c.product.productCode) + c.requestQty} // Allow editing up to total available + what's already in this cart slot
                         value={c.requestQty}
                         onChange={(e) => {
                           const newQty = parseInt(e.target.value) || 0;

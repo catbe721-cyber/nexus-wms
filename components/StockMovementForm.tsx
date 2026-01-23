@@ -48,17 +48,49 @@ const StockMovementForm: React.FC<StockMovementFormProps> = ({
     // Filter Destinations
     const filteredDestinations = useMemo(() => {
         if (!destinationSearch) return [];
-        const term = destinationSearch.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+        const cleanSearch = destinationSearch.trim().toLowerCase();
+        const searchNoSpaces = cleanSearch.replace(/\s+/g, '');
+
+        // Specific triggers
+        const isStgSearch = cleanSearch.startsWith('s');
+        const isAdjSearch = cleanSearch.startsWith('ad');
 
         return masterLocations.filter(loc => {
-            const codeStr = String(loc.code);
-            const rackStr = loc.rack ? String(loc.rack).toLowerCase() : '';
-            const levelStr = loc.level ? String(loc.level).toLowerCase() : '';
-            const bayStr = loc.bay ? String(loc.bay) : '';
-            const cleanCode = codeStr.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-            const shortHand = `${rackStr}${bayStr}${levelStr}`;
+            // Defensive checks
+            if (!loc || !loc.binCode) return false;
 
-            return cleanCode.includes(term) || shortHand.includes(term) || codeStr.toLowerCase().includes(destinationSearch.toLowerCase());
+            const rackLower = loc.rack ? loc.rack.toLowerCase() : '';
+
+            // 1. Handling Special Areas (STG, ADJ)
+            if (rackLower.startsWith('stg')) {
+                // Only show STG if user explicitly starts typing S...
+                return isStgSearch;
+            }
+            if (rackLower.startsWith('adj')) {
+                // Only show ADJ if user explicitly starts typing AD...
+                return isAdjSearch;
+            }
+
+            // 2. Handling Standard Racks
+            // Smart fuzzy matching for "G11" -> "G-01-1"
+            const bayNum = loc.bay;
+            const bayStr = String(bayNum); // "1", "11"
+            const bayPad = String(bayNum).padStart(2, '0'); // "01", "11"
+            const levelStr = loc.level ? String(loc.level).toLowerCase() : '';
+
+            const variants = [
+                // Standard "Rack-Bay-Level" (G-01-1)
+                loc.binCode.toLowerCase(),
+                // Shorthand simplified (g011)
+                `${rackLower}${bayPad}${levelStr}`,
+                // Compact shorthand (g11 -> matches G-01-1)
+                `${rackLower}${bayStr}${levelStr}`,
+                // Just the components (g11 also in here potentially)
+                `${rackLower}${bayStr}`
+            ];
+
+            return variants.some(v => v.includes(searchNoSpaces));
         }).slice(0, 10);
     }, [destinationSearch, masterLocations]);
 
@@ -86,7 +118,7 @@ const StockMovementForm: React.FC<StockMovementFormProps> = ({
 
     const handleSelectDest = (loc: MasterLocation) => {
         setSelectedDestination(loc);
-        setDestinationSearch(loc.code);
+        setDestinationSearch(loc.binCode);
         setCustomDest({ rack: loc.rack, bay: loc.bay, level: loc.level });
         setShowDestDropdown(false);
     };
@@ -236,7 +268,7 @@ const StockMovementForm: React.FC<StockMovementFormProps> = ({
                                         onClick={() => handleSelectDest(loc)}
                                         className="px-4 py-2 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0 flex justify-between items-center"
                                     >
-                                        <span className="font-bold text-white font-mono">{loc.code}</span>
+                                        <span className="font-bold text-white font-mono">{loc.binCode}</span>
                                         <span className="text-xs text-slate-500">Rack {loc.rack} • Level {loc.level}</span>
                                     </div>
                                 ))}
@@ -248,6 +280,7 @@ const StockMovementForm: React.FC<StockMovementFormProps> = ({
                         <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">Move Quantity</h3>
                         <input
                             type="number"
+                            inputMode="decimal"
                             min="1"
                             max={selectedSourceItem?.quantity || 0}
                             value={moveQty}

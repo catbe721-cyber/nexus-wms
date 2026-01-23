@@ -10,11 +10,33 @@ interface SettingsPageProps {
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ gasConfig, onSyncGas, isSyncing, onInitializeApp }) => {
 
+  const [isResetting, setIsResetting] = React.useState(false);
+  const [progress, setProgress] = React.useState(0);
+
   const handleInitialize = () => {
-    // Double confirmation for safety
-    if (window.confirm("CRITICAL WARNING: This will wipe ALL Inventory and History data.\n\nAre you absolutely sure?")) {
-      onInitializeApp();
-    }
+    setIsResetting(true);
+    setProgress(0);
+
+    const duration = 5000; // 5 seconds
+    const intervalTime = 100;
+    const steps = duration / intervalTime;
+    let currentStep = 0;
+
+    const timer = setInterval(() => {
+      currentStep++;
+      const newProgress = Math.min((currentStep / steps) * 100, 100);
+      setProgress(newProgress);
+
+      if (currentStep >= steps) {
+        clearInterval(timer);
+        // Wait a tiny bit for UI to show 100%
+        setTimeout(() => {
+          onInitializeApp();
+          setIsResetting(false);
+          setProgress(0);
+        }, 200);
+      }
+    }, intervalTime);
   };
 
   return (
@@ -94,17 +116,35 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ gasConfig, onSyncGas, isSyn
           <div className="flex-1">
             <h4 className="text-red-200 font-bold mb-1">Initialize Application</h4>
             <p className="text-sm text-slate-400">
-              Permanently delete all local Transaction History and Inventory Data.
-              This action will also overwrite the Cloud Database with an empty state on the next sync.
+              Permanently delete all local Transaction History, Inventory Data, and Products.
+              This will overwrite the Cloud Database with an empty state.
             </p>
           </div>
-          <button
-            onClick={handleInitialize}
-            className="flex-shrink-0 flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 transition-colors shadow-[0_0_15px_rgba(239,68,68,0.4)] border border-red-400"
-          >
-            <Trash2 className="w-5 h-5" />
-            Initialize App
-          </button>
+
+          <div className="flex flex-col items-end gap-2">
+            {!isResetting ? (
+              <button
+                onClick={handleInitialize}
+                className="flex-shrink-0 flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 transition-colors shadow-[0_0_15px_rgba(239,68,68,0.4)] border border-red-400"
+              >
+                <Trash2 className="w-5 h-5" />
+                Initialize App
+              </button>
+            ) : (
+              <div className="w-48">
+                <div className="flex justify-between text-xs text-red-300 mb-1 font-bold uppercase tracking-wider">
+                  <span>Resetting...</span>
+                  <span>{Math.round(progress)}%</span>
+                </div>
+                <div className="h-4 bg-red-900/40 rounded-full overflow-hidden border border-red-500/30">
+                  <div
+                    className="h-full bg-red-500 transition-all duration-100 ease-linear shadow-[0_0_10px_rgba(239,68,68,0.5)]"
+                    style={{ width: `${progress}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

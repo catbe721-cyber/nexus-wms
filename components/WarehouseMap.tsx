@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { InventoryItem, InventoryLocation, STANDARD_RACKS, AREA_CONFIG, Product, generateId, UserRole } from '../types';
-import { Package, Search, MapPin, Plus, Save, Trash2, X, Lock, ArrowRightLeft, Layers } from 'lucide-react';
+import { InventoryItem, InventoryLocation, STANDARD_RACKS, AREA_CONFIG, Product, generateId, UserRole, STG_ROWS, ADJ_ROWS } from '../types';
+import { Package, Search, MapPin, Plus, Save, Trash2, X, Lock, ArrowRightLeft, Layers, ChevronRight } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
 
 interface WarehouseMapProps {
@@ -11,7 +11,8 @@ interface WarehouseMapProps {
 }
 
 const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRole, onInventoryChange }) => {
-    const [selectedRack, setSelectedRack] = useState<string>('STG');
+    // Default to first Staging Row
+    const [selectedRack, setSelectedRack] = useState<string>('STG-01');
     const [selectedLocation, setSelectedLocation] = useState<InventoryLocation | null>(null);
 
     // Edit State
@@ -49,15 +50,19 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
     const canEdit = ['ADMIN', 'MANAGER', 'OPERATOR'].includes(userRole);
 
     // Current Dimensions based on selected rack
-    const currentConfig = AREA_CONFIG[selectedRack] || AREA_CONFIG['STG'];
-    const currentBays = currentConfig.bays;
-    const currentLevels = currentConfig.levels;
+    // Safe lookup, default to STG-01 if missing
+    const currentConfig = AREA_CONFIG[selectedRack] || AREA_CONFIG['STG-01'];
+    const currentBays = currentConfig?.bays || 12;
+    const currentLevels = currentConfig?.levels || ['Floor'];
 
     // Helper to find items in a specific cell
     const getItemsInCell = (rack: string, bay: number, level: string) => {
         return inventory.filter(item =>
             item.locations.some(loc =>
-                loc.rack === rack && loc.bay === bay && loc.level === level
+                loc.rack === rack &&
+                // Loose equality check for bay/level to handle potential string/number mismatches
+                String(loc.bay) === String(bay) &&
+                String(loc.level) === String(level)
             )
         );
     };
@@ -86,7 +91,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
         // Match by Name (exact or case-insensitive) or Code
         const product = products.find(p =>
             p.name.toLowerCase() === inputVal.toLowerCase() ||
-            p.code.toLowerCase() === inputVal.toLowerCase()
+            p.productCode.toLowerCase() === inputVal.toLowerCase()
         );
 
         if (!product || newItemQty <= 0) {
@@ -95,7 +100,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
         }
 
         // Check if item already exists in this specific bin (location)
-        const existingItem = selectedCellItems.find(item => item.productCode === product.code);
+        const existingItem = selectedCellItems.find(item => item.productCode === product.productCode);
 
         if (existingItem) {
             // Merge logic
@@ -106,8 +111,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
             // Create new logic
             const newItem: InventoryItem = {
                 id: generateId(),
-                productId: product.id,
-                productCode: product.code,
+                productCode: product.productCode,
                 productName: product.name,
                 category: product.defaultCategory || 'OTH',
                 unit: product.defaultUnit || 'pcs',
@@ -254,33 +258,58 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                 {/* Grid Background Effect */}
                 <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] [mask-image:radial-gradient(ellipse_at_center,black_70%,transparent_100%)]"></div>
 
-                <div className="flex justify-between items-center mb-4 relative z-10">
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2 font-display tracking-wide">
-                        <MapPin className="w-5 h-5 text-primary" />
-                        Warehouse Visualizer
-                    </h2>
-                    <div className="flex gap-1 overflow-x-auto pb-2">
-                        {/* Special Areas First */}
-                        {['STG', 'ADJ'].map(area => (
-                            <button
-                                key={area}
-                                type="button"
-                                onClick={() => {
-                                    setSelectedRack(area);
-                                    setSelectedLocation(null);
-                                }}
-                                className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all ${selectedRack === area
-                                    ? 'bg-primary text-white shadow-[0_0_10px_rgba(139,92,246,0.6)] border border-primary/50'
-                                    : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white border border-white/5'
-                                    }`}
-                            >
-                                {area}
-                            </button>
-                        ))}
+                <div className="flex flex-col gap-2 mb-4 relative z-10">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-xl font-bold text-white flex items-center gap-2 font-display tracking-wide">
+                            <MapPin className="w-5 h-5 text-primary" />
+                            Warehouse Visualizer
+                        </h2>
+                    </div>
 
-                        <div className="w-px bg-slate-300 mx-2 h-6"></div>
+                    {/* Zone Selector Bar */}
+                    <div className="flex gap-2 p-1 bg-black/40 rounded-lg overflow-x-auto">
+                        {/* Staging Zone */}
+                        <div className="flex gap-1">
+                            <div className="px-2 flex items-center text-xs font-bold text-slate-500 uppercase tracking-wider bg-white/5 rounded">Staging</div>
+                            {/* Removed max-w restriction to give full space */}
+                            <div className="flex gap-1 overflow-x-auto">
+                                {STG_ROWS.map(row => (
+                                    <button
+                                        key={row}
+                                        onClick={() => { setSelectedRack(row); setSelectedLocation(null); }}
+                                        className={`px-2 py-1 text-xs font-bold rounded transition-colors whitespace-nowrap ${selectedRack === row ? 'bg-amber-500 text-black' : 'bg-slate-800 text-slate-400 hover:text-amber-400'
+                                            }`}
+                                    >
+                                        {row.replace('STG-', 'R')}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
 
-                        {/* Standard Racks */}
+                        <div className="w-px bg-white/10 mx-1"></div>
+
+                        {/* Adj Zone */}
+                        <div className="flex gap-1">
+                            <div className="px-2 flex items-center text-xs font-bold text-slate-500 uppercase tracking-wider bg-white/5 rounded">ADJ</div>
+                            {/* Restricted ADJ width on mobile, full width on desktop */}
+                            <div className="flex gap-1 overflow-x-auto max-w-[250px] lg:max-w-none">
+                                {ADJ_ROWS.map(row => (
+                                    <button
+                                        key={row}
+                                        onClick={() => { setSelectedRack(row); setSelectedLocation(null); }}
+                                        className={`px-2 py-1 text-xs font-bold rounded transition-colors whitespace-nowrap ${selectedRack === row ? 'bg-purple-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-purple-400'
+                                            }`}
+                                    >
+                                        {row.replace('ADJ-', 'R')}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Standard Racks Bar */}
+                    <div className="flex gap-2 overflow-x-auto pb-2 border-t border-white/5 pt-2">
+                        <div className="px-2 flex items-center text-xs font-bold text-slate-500 uppercase tracking-wider bg-white/5 rounded">Racks</div>
                         {STANDARD_RACKS.map(rack => (
                             <button
                                 key={rack}
@@ -289,102 +318,70 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                                     setSelectedRack(rack);
                                     setSelectedLocation(null);
                                 }}
-                                className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all ${selectedRack === rack
+                                className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${selectedRack === rack
                                     ? 'bg-primary text-white shadow-[0_0_10px_rgba(139,92,246,0.6)] border border-primary/50'
                                     : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white border border-white/5'
                                     }`}
                             >
-                                Rack {rack}
+                                {rack}
                             </button>
                         ))}
                     </div>
                 </div>
 
                 <div className="flex-1 overflow-auto bg-slate-950/50 border border-white/5 rounded-lg p-4 relative shadow-inner">
-                    {/* Conditional Renderer: Bulk Area vs Grid */}
-                    {currentBays === 1 && currentLevels[0] === 'Area' ? (
-                        // BULK AREA RENDERER
-                        <div className="h-full flex items-center justify-center p-10">
-                            <div
-                                onClick={() => setSelectedLocation({ rack: selectedRack, bay: 1, level: 'Area' })}
-                                className={`
-                            w-full max-w-2xl h-64 border-2 rounded-xl cursor-pointer transition-all relative group overflow-hidden
-                            flex flex-col items-center justify-center gap-4 backdrop-blur-sm
-                            ${selectedLocation?.rack === selectedRack ? 'ring-4 ring-primary/30 border-primary bg-primary/10' : 'border-white/10 hover:border-primary/50 bg-white/5'}
-                        `}
-                            >
-                                <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.05)_50%,transparent_75%,transparent_100%)] bg-[length:250%_250%,100%_100%] bg-[position:-100%_0,0_0] bg-no-repeat transition-[background-position_0s_ease] hover:bg-[position:200%_0,0_0] duration-[1500ms]"></div>
-
-                                <div className="text-6xl font-black text-white/5 uppercase tracking-widest select-none pointer-events-none absolute w-full text-center font-display">
-                                    {selectedRack} ZONE
+                    {/* STANDARD GRID RENDERER */}
+                    <div className="min-w-fit">
+                        {/* Header Row for Bays */}
+                        <div className="flex mb-2 pl-16">
+                            {Array.from({ length: currentBays }, (_, i) => i + 1).map(bay => (
+                                <div key={bay} className="flex-1 text-center text-xs font-bold text-slate-500 uppercase min-w-[3rem]">
+                                    Bay {bay}
                                 </div>
-
-                                <div className="z-10 flex flex-col items-center gap-2">
-                                    <Package className={`w-16 h-16 ${getItemsInCell(selectedRack, 1, 'Area').length > 0 ? 'text-primary drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]' : 'text-slate-700'}`} />
-                                    <div className="text-2xl font-bold text-slate-100 font-display">
-                                        {getItemsInCell(selectedRack, 1, 'Area').reduce((acc, i) => acc + i.quantity, 0)} Units • {new Set(getItemsInCell(selectedRack, 1, 'Area').map(i => i.productCode)).size} SKUs
-                                    </div>
-                                    <div className="text-sm text-slate-400 bg-black/40 px-3 py-1 rounded-full backdrop-blur-md border border-white/5">
-                                        Bulk Storage Area
-                                    </div>
-                                </div>
-                            </div>
+                            ))}
                         </div>
-                    ) : (
-                        // STANDARD GRID RENDERER
-                        <div className="min-w-fit">
-                            {/* Header Row for Bays */}
-                            <div className="flex mb-2 pl-16">
-                                {Array.from({ length: currentBays }, (_, i) => i + 1).map(bay => (
-                                    <div key={bay} className="flex-1 text-center text-xs font-bold text-slate-500 uppercase min-w-[3rem]">
-                                        Bay {bay}
-                                    </div>
-                                ))}
-                            </div>
 
-                            {/* Grid Rows for Levels */}
-                            {currentLevels.map(level => (
-                                <div key={level} className="flex mb-2 h-16">
-                                    {/* Level Label */}
-                                    {/* Level Label */}
-                                    <div className="w-16 flex-none flex items-center justify-center text-xs font-bold text-slate-500 bg-slate-100 rounded-l-md border-r border-slate-200">
-                                        {level === 'Floor' ? 'Floor' : (selectedRack === 'STG' || selectedRack === 'ADJ' ? `Plc ${level}` : `Lvl ${level}`)}
-                                    </div>
+                        {/* Grid Rows for Levels */}
+                        {currentLevels.map(level => (
+                            <div key={level} className="flex mb-2 h-16">
+                                {/* Level Label */}
+                                <div className="w-16 flex-none flex items-center justify-center text-xs font-bold text-slate-500 bg-slate-100 rounded-l-md border-r border-slate-200">
+                                    {level === 'Floor' ? 'Floor' : (selectedRack.startsWith('STG') || selectedRack.startsWith('ADJ') ? `Lvl ${level}` : `Lvl ${level}`)}
+                                </div>
 
-                                    {/* Cells */}
-                                    {Array.from({ length: currentBays }, (_, i) => i + 1).map(bay => {
-                                        const items = getItemsInCell(selectedRack, bay, level);
-                                        const hasItems = items.length > 0;
-                                        const isSelected = selectedLocation?.rack === selectedRack && selectedLocation?.bay === bay && selectedLocation?.level === level;
+                                {/* Cells */}
+                                {Array.from({ length: currentBays }, (_, i) => i + 1).map(bay => {
+                                    const items = getItemsInCell(selectedRack, bay, level);
+                                    const hasItems = items.length > 0;
+                                    const isSelected = selectedLocation?.rack === selectedRack && selectedLocation?.bay === bay && selectedLocation?.level === level;
 
-                                        return (
-                                            <div
-                                                key={`${selectedRack}-${bay}-${level}`}
-                                                onClick={() => setSelectedLocation({ rack: selectedRack, bay, level })}
-                                                className={`
+                                    return (
+                                        <div
+                                            key={`${selectedRack}-${bay}-${level}`}
+                                            onClick={() => setSelectedLocation({ rack: selectedRack, bay, level })}
+                                            className={`
                                              flex-1 mx-0.5 border rounded-sm cursor-pointer transition-all relative group
                                              flex items-center justify-center text-xs min-w-[3rem]
                                              ${isSelected ? 'ring-2 ring-primary border-primary z-10 shadow-[0_0_10px_rgba(139,92,246,0.5)]' : 'border-white/5'}
                                              ${hasItems
-                                                        ? 'bg-primary/20 hover:bg-primary/30 border-primary/30 text-primary-200'
-                                                        : 'bg-white/5 hover:bg-white/10 text-slate-600'}
+                                                    ? 'bg-primary/20 hover:bg-primary/30 border-primary/30 text-primary-200'
+                                                    : 'bg-white/5 hover:bg-white/10 text-slate-600'}
                                          `}
-                                            >
-                                                {hasItems ? (
-                                                    <div className="flex flex-col items-center">
-                                                        <Package className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-primary'}`} />
-                                                        <span className={`font-bold ${isSelected ? 'text-white' : 'text-primary-100'}`}>{items.length}</span>
-                                                    </div>
-                                                ) : (
-                                                    <span className="opacity-0 group-hover:opacity-50 text-[10px] text-slate-400">Empty</span>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                                        >
+                                            {hasItems ? (
+                                                <div className="flex flex-col items-center">
+                                                    <Package className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-primary'}`} />
+                                                    <span className={`font-bold ${isSelected ? 'text-white' : 'text-primary-100'}`}>{items.length}</span>
+                                                </div>
+                                            ) : (
+                                                <span className="opacity-0 group-hover:opacity-50 text-[10px] text-slate-400">Empty</span>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 <div className="mt-4 flex gap-4 text-sm text-slate-500">
@@ -415,7 +412,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                             <div className="relative z-10">
                                 <span className="font-bold block text-sm uppercase tracking-wider text-primary">Selected Bin</span>
                                 <span className="text-3xl font-bold font-display text-white">
-                                    {selectedLocation.rack}-{String(selectedLocation.bay).padStart(2, '0')}-{selectedLocation.level}
+                                    {selectedLocation.rack}-{selectedLocation.bay}-{selectedLocation.level}
                                 </span>
                             </div>
                         </div>
@@ -599,6 +596,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                                         </datalist>
                                         <input
                                             type="number"
+                                            inputMode="decimal"
                                             placeholder="Quantity"
                                             value={newItemQty}
                                             onChange={(e) => setNewItemQty(parseFloat(e.target.value))}

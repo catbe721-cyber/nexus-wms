@@ -13,7 +13,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
     // Aggregate logic
     const inventorySummary = React.useMemo(() => {
         const summary: Record<string, {
-            code: string,
+            productCode: string,
             name: string,
             qty: number,
             unit: string,
@@ -23,10 +23,10 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
         }> = {};
 
         inventory.forEach(item => {
-            const product = products.find(p => p.code === item.productCode);
+            const product = products.find(p => p.productCode === item.productCode);
             if (!summary[item.productCode]) {
                 summary[item.productCode] = {
-                    code: item.productCode,
+                    productCode: item.productCode,
                     name: item.productName,
                     qty: 0,
                     unit: item.unit,
@@ -43,10 +43,22 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
     }, [inventory, products]);
 
     const filteredItems = inventorySummary.filter(item =>
-        item.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.productCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.category.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+
+    const toggleExpand = (code: string) => {
+        const newSet = new Set(expandedItems);
+        if (newSet.has(code)) {
+            newSet.delete(code);
+        } else {
+            newSet.add(code);
+        }
+        setExpandedItems(newSet);
+    };
 
     const getCategoryColor = (cat: string) => {
         const upperCat = cat?.toUpperCase() || '';
@@ -66,7 +78,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
                         <FileText className="w-6 h-6 text-primary" />
                         Inventory Summary
                     </h2>
-                    <p className="text-sm text-slate-400">Aggregated view by product. Check "Item Entries" for history.</p>
+                    <p className="text-sm text-slate-400">Aggregated view by product. Click items to see bin breakdown.</p>
                 </div>
                 <div className="relative w-full md:w-64">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" />
@@ -95,43 +107,89 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
                         <tbody className="divide-y divide-white/5">
                             {filteredItems.map(item => {
                                 const isLow = item.minStock > 0 && item.qty < item.minStock;
+                                const isExpanded = expandedItems.has(item.productCode);
+
+                                // Group locations by unique sub-quantities if we want precise counts
+                                // We need to re-scan inventory to get detailed breakdown for this product
+                                const productInventory = inventory.filter(i => i.productCode === item.productCode);
+
                                 return (
-                                    <tr key={item.code} className="hover:bg-white/5 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="font-bold text-slate-200 text-base">{item.name}</div>
-                                            <div className="text-xs text-slate-500 font-mono mt-0.5">{item.code}</div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${getCategoryColor(item.category)}`}>
-                                                {item.category}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <span className="font-bold text-white text-lg font-mono">{item.qty}</span>
-                                            <span className="text-xs text-slate-500 ml-1">{item.unit}</span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            {isLow ? (
-                                                <span className="inline-flex items-center gap-1 text-red-400 font-bold text-xs bg-red-500/10 border border-red-500/30 px-2 py-1 rounded">
-                                                    <AlertTriangle className="w-3 h-3" /> Low Stock
+                                    <React.Fragment key={item.productCode}>
+                                        <tr
+                                            onClick={() => toggleExpand(item.productCode)}
+                                            className="hover:bg-white/5 transition-colors cursor-pointer group"
+                                        >
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-slate-200 text-base group-hover:text-primary transition-colors">{item.name}</div>
+                                                <div className="text-xs text-slate-500 font-mono mt-0.5">{item.productCode}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${getCategoryColor(item.category)}`}>
+                                                    {item.category}
                                                 </span>
-                                            ) : (
-                                                <span className="text-green-400 font-bold text-xs bg-green-500/10 border border-green-500/30 px-2 py-1 rounded">OK</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex flex-wrap gap-1">
-                                                {Array.from(item.locations).sort().map((loc: string) => (
-                                                    <span key={loc} className={`px-2 py-0.5 rounded text-xs border ${loc.startsWith('STG')
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <span className="font-bold text-white text-lg font-mono">{item.qty}</span>
+                                                <span className="text-xs text-slate-500 ml-1">{item.unit}</span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {isLow ? (
+                                                    <span className="inline-flex items-center gap-1 text-red-400 font-bold text-xs bg-red-500/10 border border-red-500/30 px-2 py-1 rounded">
+                                                        <AlertTriangle className="w-3 h-3" /> Low Stock
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-green-400 font-bold text-xs bg-green-500/10 border border-green-500/30 px-2 py-1 rounded">OK</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-wrap gap-1">
+                                                    {Array.from(item.locations).slice(0, 3).map((loc: string) => (
+                                                        <span key={loc} className={`px-2 py-0.5 rounded text-xs border ${loc.startsWith('STG')
                                                             ? 'bg-amber-500/20 text-amber-400 border-amber-500/30 font-bold'
                                                             : 'bg-slate-800 text-slate-400 border-white/5'
-                                                        }`}>
-                                                        {loc}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </td>
-                                    </tr>
+                                                            }`}>
+                                                            {loc}
+                                                        </span>
+                                                    ))}
+                                                    {item.locations.size > 3 && (
+                                                        <span className="px-2 py-0.5 rounded text-xs bg-slate-800 text-slate-400 border border-white/5">
+                                                            +{item.locations.size - 3} more
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {isExpanded && (
+                                            <tr className="bg-slate-900/80">
+                                                <td colSpan={5} className="px-6 py-4 shadow-inner">
+                                                    <div className="border border-white/10 rounded-lg overflow-hidden">
+                                                        <div className="px-4 py-2 bg-black/40 text-xs font-bold text-slate-400 uppercase tracking-wider flex justify-between">
+                                                            <span>Bin Location</span>
+                                                            <span>Quantity</span>
+                                                        </div>
+                                                        <div className="divide-y divide-white/5">
+                                                            {productInventory.map(invItem => (
+                                                                <div key={invItem.id} className="px-4 py-3 flex justify-between items-center bg-slate-800/20 hover:bg-slate-800/40 transition-colors">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Package className="w-4 h-4 text-primary/50" />
+                                                                        <span className="font-mono text-slate-300 font-bold">
+                                                                            {invItem.locations.map(l => `${l.rack}-${l.bay}-${l.level}`).join(', ')}
+                                                                        </span>
+                                                                        {invItem.locations[0]?.rack.startsWith('STG') && (
+                                                                            <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/30">Staging</span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="font-mono text-white font-bold">
+                                                                        {invItem.quantity} <span className="text-xs text-slate-500 font-normal">{item.unit}</span>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
                                 )
                             })}
                             {filteredItems.length === 0 && (
