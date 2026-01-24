@@ -127,7 +127,6 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
           } else {
             // "Orphan" item - create transient product object
             matches.set(item.productCode, {
-              id: item.productCode, // temporary id
               productCode: item.productCode,
               name: item.productName,
               defaultCategory: item.category,
@@ -279,7 +278,7 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
               <div className="absolute z-50 w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl max-h-64 overflow-y-auto">
                 {filteredProducts.map(p => (
                   <div
-                    key={p.id}
+                    key={p.productCode}
                     onClick={() => handleSelectProduct(p)}
                     className="px-4 py-3 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0"
                   >

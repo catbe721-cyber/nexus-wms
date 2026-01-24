@@ -28,6 +28,7 @@ export interface InventoryLocation {
 }
 
 export interface MasterLocation {
+  id: string; // Unique ID
   binCode: string; // Formerly code ("A-01-1")
   name?: string; // Optional alias
   rack: string;

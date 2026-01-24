@@ -58,8 +58,8 @@ const INITIAL_PRODUCTS: Product[] = [
   { productCode: 'S001-09-1', name: 'Mayonnaise', defaultCategory: 'RTE', defaultUnit: 'PLT', minStockLevel: 3 },
 ];
 
-// Hardcoded URL for shared database access
-const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxvCw5tZAZPyH7LLOU30ivLKGksCAzHTtSvlNM14wAXCKw7RLnBD4O6ejNBRiYpYXOT/exec';
+// URL from environment variable
+const DEFAULT_GAS_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL || '';
 
 function App() {
   const [view, setView] = useState<ViewState>('dashboard');
@@ -113,6 +113,7 @@ function App() {
       for (let b = 1; b <= config.bays; b++) {
         config.levels.forEach(l => {
           locs.push({
+            id: generateId(),
             binCode: `${rackName}-${b}-${l}`,
             rack: rackName,
             bay: b,
@@ -147,23 +148,28 @@ function App() {
   useEffect(() => { localStorage.setItem('nexuswms_locations_v3', JSON.stringify(masterLocations)); }, [masterLocations]);
   useEffect(() => { localStorage.setItem('nexuswms_gas_config', JSON.stringify(gasConfig)); }, [gasConfig]);
 
-  // Load from GAS on mount if enabled
+  // -- Auto-Sync Effect --
+  const isInitialSyncDone = React.useRef(false);
+
+  // Load from GAS on mount if enabled - Force Pull
   useEffect(() => {
     if (gasConfig.enabled && gasConfig.url) {
-      handleSyncGas(false); // Initial load (don't overwrite cloud with local yet)
+      // Pass 'false' for pushLocalToCloud to indicate PULL mode
+      // Pass 'false' for silent to allow logging
+      // Pass 'false' for forcePushEmpty
+      // True for 'isMount' (new param concept, or just rely on behavior)
+      handleSyncGas(false);
     }
   }, []); // Run once on mount
 
   const handleSyncGas = async (pushLocalToCloud = true, silent = false, forcePushEmpty = false) => {
-    if (!gasConfig.url || !gasConfig.enabled) return; // check enabled flag
+    if (!gasConfig.url || !gasConfig.enabled) return;
 
-    // SAFETY CHECK: 
-    // If we are about to PUSH (Auto-Save), but the local inventory is completely empty,
-    // it likely means the user just opened the app in a new session (e.g., Incognito).
-    // In this case, we should NOT wipe the cloud data. Instead, we should PULL (Load) from cloud.
-    if (pushLocalToCloud && !forcePushEmpty && inventory.length === 0 && transactions.length === 0) {
-      if (!silent) console.log("NexusWMS: Detected empty local state. Switching to PULL mode to load data from Cloud.");
-      pushLocalToCloud = false;
+    // Safety: If we haven't successfully pulled yet, do NOT auto-save (push).
+    // This protects against overwriting the cloud with empty local data on fresh boot.
+    if (pushLocalToCloud && !isInitialSyncDone.current && !forcePushEmpty) {
+      console.warn('NexusWMS: Skipped auto-save because initial load is not complete.');
+      return;
     }
 
     setIsSyncing(true);
@@ -176,39 +182,20 @@ function App() {
           transactions,
           locations: masterLocations
         });
-        // if (!silent) showAlert('Sync Complete', 'Local data successfully saved to Google Sheets.');
+        if (!silent) console.log('NexusWMS: Auto-saved to Google Sheets.');
       } else {
-        // Pull Mode: Load from Cloud
+        // Pull Mode: Load from Cloud (Priority Source)
         const data = await GASService.fetchData(gasConfig.url);
 
-        // If the user added items *while* we were fetching data (e.g., initial load race),
-        // we must NOT overwrite their new work with potentially empty/stale cloud data.
-
-        // Mark initial sync as done effectively, allowing future auto-saves
-        isInitialSyncDone.current = true;
-
-        setInventory(prev => {
-          // If we started with empty inventory (inventory.length === 0 captured in closure)
-          // but now have items (prev.length > 0), user must have added them. Abort overwrite.
-          if (inventory.length === 0 && prev.length > 0) {
-            console.warn('NexusWMS: Prevented overwrite of user data during initial sync.');
-            return prev;
-          }
-          return data.inventory || prev;
-        });
-
+        // Overwrite local state with Cloud Data
+        // We trust the cloud as the source of truth on startup
+        if (data.inventory) setInventory(data.inventory);
         if (data.products) setProducts(data.products);
-
-        setTransactions(prev => {
-          if (transactions.length === 0 && prev.length > 0) return prev;
-          return data.transactions || prev;
-        });
-
-        // Locations usually don't have this race condition as user doesn't "add" them quickly on start,
-        // but safe to keep consistent.
+        if (data.transactions) setTransactions(data.transactions);
         if (data.locations) setMasterLocations(data.locations);
 
-        // if (!silent) showAlert('Sync Complete', 'Data successfully loaded from Google Sheets.');
+        isInitialSyncDone.current = true;
+        if (!silent) console.log('NexusWMS: Initial data loaded from Google Sheets.');
       }
     } catch (error: any) {
       console.error(error);
@@ -218,20 +205,15 @@ function App() {
     }
   };
 
-  // -- Auto-Sync Effect --
-  const isInitialSyncDone = React.useRef(false);
-
+  // Trigger Auto-Save on Data Change
   useEffect(() => {
     if (!gasConfig.enabled || !gasConfig.url) return;
-
-    // BLOCKER: Do not auto-sync (push) until we have successfully pulled at least once.
-    // This prevents overwriting cloud data with stale/empty local data on load.
     if (!isInitialSyncDone.current) return;
 
+    // Debounce to prevent flooding API
     const timer = setTimeout(() => {
-      // Auto-save silently
-      handleSyncGas(true, true);
-    }, 2000); // 2 second debounce
+      handleSyncGas(true, true); // Push, Silent
+    }, 1000); // 1 second debounce (User requested faster than 2s)
 
     return () => clearTimeout(timer);
   }, [inventory, products, transactions, masterLocations, gasConfig.enabled, gasConfig.url]);
