@@ -236,16 +236,16 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
     // AI Simulation: Extracting data from your provided image
     setTimeout(() => {
       const rawScannedItems = [
-        { name: 'BH-20 Sushi Tray', qty: 31, possibleCode: 'S002-01-1' },
-        { name: 'Nori Half Size', qty: 1, possibleCode: 'S001-07-1' },
-        { name: 'SFLM-2 LID FLAT FOR SBM-24B&SBM-32B', qty: 0, possibleCode: 'S004-01-1' },
-        { name: 'SBM-24C PLASTIC ECOSTAR CROUND CONTAINER CLEAR', qty: 0, possibleCode: 'S004-02-1' },
-        { name: 'Sushi Box', qty: 1, possibleCode: 'S005-01-1' },
-        { name: 'GINGER(5G)', qty: 5, possibleCode: 'S001-02-1' },
-        { name: 'Soy Sauce', qty: 5, possibleCode: 'S001-04-2' },
-        { name: 'Fine Sugar', qty: 9, possibleCode: 'S001-05-1' },
-        { name: 'Vinegar', qty: 9, possibleCode: 'S001-01-1' },
-        { name: 'Pick List Image Item', qty: 1, possibleCode: 'S003-01-3' },
+        { name: 'Sushi Tray HP 65', qty: 15, possibleCode: 'UFTS0010' },
+        { name: 'BH-20 Sushi Tray', qty: 20, possibleCode: 'UFTS0001' },
+        { name: 'Nori Half Size', qty: 2, possibleCode: 'UV000008' },
+        { name: 'SFLM-2 LID', qty: 5, possibleCode: 'UFTP0002' },
+        { name: 'SBM-24C', qty: 5, possibleCode: 'UFTP0001' },
+        { name: 'Ginger', qty: 10, possibleCode: 'UV000007' },
+        { name: 'Soy Sauce', qty: 10, possibleCode: 'UE000013' },
+        { name: 'Sugar', qty: 5, possibleCode: 'UE000023' },
+        { name: 'Rice', qty: 1, possibleCode: 'UE000004' },
+        { name: 'Tape', qty: 3, possibleCode: 'FB000012' },
       ];
 
       setCart(prevCart => {
