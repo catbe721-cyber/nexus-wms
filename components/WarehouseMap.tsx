@@ -306,55 +306,113 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                 <div className="flex-1 overflow-auto bg-slate-950/50 border border-white/5 rounded-lg p-4 relative shadow-inner">
                     {/* STANDARD GRID RENDERER */}
                     <div className="min-w-fit">
-                        {/* Header Row for Bays */}
-                        <div className="flex mb-2 pl-12">
-                            {Array.from({ length: currentBays }, (_, i) => i + 1).map(bay => (
-                                <div key={bay} className="w-10 mx-0.5 text-center text-[10px] font-bold text-slate-500 uppercase flex-none">
-                                    {bay}
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Grid Rows for Levels */}
-                        {currentLevels.map(level => (
-                            <div key={level} className="flex mb-2">
-                                {/* Level Label */}
-                                <div className="w-12 flex-none flex items-center justify-center text-[10px] font-bold text-slate-500 text-center px-1">
-                                    {level === 'Floor' ? 'FLR' : (['STG', 'ADJ'].includes(selectedRack) ? `P${level}` : `L${level}`)}
-                                </div>
-
-                                {/* Cells */}
-                                {Array.from({ length: currentBays }, (_, i) => i + 1).map(bay => {
-                                    const items = getItemsInCell(selectedRack, bay, level);
-                                    const hasItems = items.length > 0;
-                                    const isSelected = selectedLocation?.rack === selectedRack && selectedLocation?.bay === bay && selectedLocation?.level === level;
-
-                                    return (
-                                        <div
-                                            key={`${selectedRack}-${bay}-${level}`}
-                                            onClick={() => setSelectedLocation({ rack: selectedRack, bay, level })}
-                                            className={`
-                                             mx-0.5 border rounded-sm cursor-pointer transition-all relative group
-                                             flex items-center justify-center text-xs w-10 h-10 aspect-square
-                                             ${isSelected ? 'ring-2 ring-primary border-primary z-10 shadow-[0_0_10px_rgba(139,92,246,0.5)]' : 'border-white/5'}
-                                             ${hasItems
-                                                    ? 'bg-primary/20 hover:bg-primary/30 border-primary/30 text-primary-200'
-                                                    : 'bg-white/5 hover:bg-white/10 text-slate-600'}
-                                         `}
-                                        >
-                                            {hasItems ? (
-                                                <div className="flex flex-col items-center">
-                                                    <Package className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-primary'}`} />
-                                                    <span className={`text-[10px] font-bold leading-none ${isSelected ? 'text-white' : 'text-primary-100'}`}>{items.length}</span>
-                                                </div>
-                                            ) : (
-                                                <span className="opacity-0 group-hover:opacity-50 text-[10px] text-slate-400">.</span>
-                                            )}
+                        {STANDARD_RACKS.includes(selectedRack) ? (
+                            // SPECIAL LAYOUT FOR RACKS A-J: Rows=Bays(12-1), Cols=Levels(Floor-3)
+                            <>
+                                {/* Header Row - Levels */}
+                                <div className="flex mb-2 pl-12">
+                                    {['Floor', '1', '2', '3'].map(levelDisplay => (
+                                        <div key={levelDisplay} className="w-10 mx-2 text-center text-[10px] font-bold text-slate-500 uppercase flex-none">
+                                            {levelDisplay === 'Floor' ? 'FLR' : `L${levelDisplay}`}
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        ))}
+                                    ))}
+                                </div>
+
+                                {/* Body - Rows are Bays (12 down to 1) */}
+                                {Array.from({ length: 12 }, (_, i) => 12 - i).map(bay => (
+                                    <div key={bay} className="flex mb-1">
+                                        {/* Row Label - Bay */}
+                                        <div className="w-12 flex-none flex items-center justify-center text-[10px] font-bold text-slate-500 text-center px-1">
+                                            {bay}
+                                        </div>
+
+                                        {/* Cells - Columns are Levels */}
+                                        {['Floor', '1', '2', '3'].map(level => {
+                                            const items = getItemsInCell(selectedRack, bay, level);
+                                            const hasItems = items.length > 0;
+                                            const isSelected = selectedLocation?.rack === selectedRack && selectedLocation?.bay === bay && selectedLocation?.level === level;
+
+                                            return (
+                                                <div
+                                                    key={`${selectedRack}-${bay}-${level}`}
+                                                    onClick={() => setSelectedLocation({ rack: selectedRack, bay, level })}
+                                                    className={`
+                                                         mx-2 border rounded-sm cursor-pointer transition-all relative group
+                                                         flex items-center justify-center text-xs w-10 h-10 aspect-square
+                                                         ${isSelected ? 'ring-2 ring-primary border-primary z-10 shadow-[0_0_10px_rgba(139,92,246,0.5)]' : 'border-white/5'}
+                                                         ${hasItems
+                                                            ? 'bg-primary/20 hover:bg-primary/30 border-primary/30 text-primary-200'
+                                                            : 'bg-white/5 hover:bg-white/10 text-slate-600'}
+                                                     `}
+                                                >
+                                                    {hasItems ? (
+                                                        <div className="flex flex-col items-center">
+                                                            <Package className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-primary'}`} />
+                                                            <span className={`text-[10px] font-bold leading-none ${isSelected ? 'text-white' : 'text-primary-100'}`}>{items.length}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="opacity-0 group-hover:opacity-50 text-[10px] text-slate-400">.</span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ))}
+                            </>
+                        ) : (
+                            // DEFAULT LAYOUT FOR OTHER AREAS (STG, ADJ)
+                            <>
+                                {/* Header Row for Bays */}
+                                <div className="flex mb-2 pl-12">
+                                    {Array.from({ length: currentBays }, (_, i) => i + 1).map(bay => (
+                                        <div key={bay} className="w-10 mx-2 text-center text-[10px] font-bold text-slate-500 uppercase flex-none">
+                                            {bay}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Grid Rows for Levels */}
+                                {currentLevels.map(level => (
+                                    <div key={level} className="flex mb-1">
+                                        {/* Level Label */}
+                                        <div className="w-12 flex-none flex items-center justify-center text-[10px] font-bold text-slate-500 text-center px-1">
+                                            {level === 'Floor' ? 'FLR' : (['STG', 'ADJ'].includes(selectedRack) ? `P${level}` : `L${level}`)}
+                                        </div>
+
+                                        {/* Cells */}
+                                        {Array.from({ length: currentBays }, (_, i) => i + 1).map(bay => {
+                                            const items = getItemsInCell(selectedRack, bay, level);
+                                            const hasItems = items.length > 0;
+                                            const isSelected = selectedLocation?.rack === selectedRack && selectedLocation?.bay === bay && selectedLocation?.level === level;
+
+                                            return (
+                                                <div
+                                                    key={`${selectedRack}-${bay}-${level}`}
+                                                    onClick={() => setSelectedLocation({ rack: selectedRack, bay, level })}
+                                                    className={`
+                                                     mx-2 border rounded-sm cursor-pointer transition-all relative group
+                                                     flex items-center justify-center text-xs w-10 h-10 aspect-square
+                                                     ${isSelected ? 'ring-2 ring-primary border-primary z-10 shadow-[0_0_10px_rgba(139,92,246,0.5)]' : 'border-white/5'}
+                                                     ${hasItems
+                                                            ? 'bg-primary/20 hover:bg-primary/30 border-primary/30 text-primary-200'
+                                                            : 'bg-white/5 hover:bg-white/10 text-slate-600'}
+                                                 `}
+                                                >
+                                                    {hasItems ? (
+                                                        <div className="flex flex-col items-center">
+                                                            <Package className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-primary'}`} />
+                                                            <span className={`text-[10px] font-bold leading-none ${isSelected ? 'text-white' : 'text-primary-100'}`}>{items.length}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="opacity-0 group-hover:opacity-50 text-[10px] text-slate-400">.</span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ))}
+                            </>
+                        )}
                     </div>
                 </div>
 
