@@ -75,6 +75,7 @@ export const GASService = {
         console.log('GASService: Action:', action);
         console.log('GASService: Data Keys:', Object.keys(data));
         if (data.inventory) console.log('GASService: Inventory Count:', data.inventory.length);
+        if (data.pickLists) console.log('GASService: PickLists Count:', data.pickLists.length);
         console.log('GASService: Payload Length:', payload.length);
 
         try {

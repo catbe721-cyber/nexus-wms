@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { InventoryItem, InventoryLocation, STANDARD_RACKS, AREA_CONFIG, Product, generateId, UserRole, STG_ROWS, ADJ_ROWS } from '../types';
+import { InventoryItem, InventoryLocation, STANDARD_RACKS, AREA_CONFIG, Product, generateId, UserRole } from '../types';
 import { Package, Search, MapPin, Plus, Save, Trash2, X, Lock, ArrowRightLeft, Layers, ChevronRight } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
 
@@ -12,7 +12,7 @@ interface WarehouseMapProps {
 
 const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRole, onInventoryChange }) => {
     // Default to first Staging Row
-    const [selectedRack, setSelectedRack] = useState<string>('STG-01');
+    const [selectedRack, setSelectedRack] = useState<string>('STG');
     const [selectedLocation, setSelectedLocation] = useState<InventoryLocation | null>(null);
 
     // Edit State
@@ -268,43 +268,18 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
 
                     {/* Zone Selector Bar */}
                     <div className="flex gap-2 p-1 bg-black/40 rounded-lg overflow-x-auto">
-                        {/* Staging Zone */}
-                        <div className="flex gap-1">
-                            <div className="px-2 flex items-center text-xs font-bold text-slate-500 uppercase tracking-wider bg-white/5 rounded">Staging</div>
-                            {/* Removed max-w restriction to give full space */}
-                            <div className="flex gap-1 overflow-x-auto">
-                                {STG_ROWS.map(row => (
-                                    <button
-                                        key={row}
-                                        onClick={() => { setSelectedRack(row); setSelectedLocation(null); }}
-                                        className={`px-2 py-1 text-xs font-bold rounded transition-colors whitespace-nowrap ${selectedRack === row ? 'bg-amber-500 text-black' : 'bg-slate-800 text-slate-400 hover:text-amber-400'
-                                            }`}
-                                    >
-                                        {row.replace('STG-', 'R')}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="w-px bg-white/10 mx-1"></div>
-
-                        {/* Adj Zone */}
-                        <div className="flex gap-1">
-                            <div className="px-2 flex items-center text-xs font-bold text-slate-500 uppercase tracking-wider bg-white/5 rounded">ADJ</div>
-                            {/* Restricted ADJ width on mobile, full width on desktop */}
-                            <div className="flex gap-1 overflow-x-auto max-w-[250px] lg:max-w-none">
-                                {ADJ_ROWS.map(row => (
-                                    <button
-                                        key={row}
-                                        onClick={() => { setSelectedRack(row); setSelectedLocation(null); }}
-                                        className={`px-2 py-1 text-xs font-bold rounded transition-colors whitespace-nowrap ${selectedRack === row ? 'bg-purple-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-purple-400'
-                                            }`}
-                                    >
-                                        {row.replace('ADJ-', 'R')}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
+                        <button
+                            onClick={() => { setSelectedRack('STG'); setSelectedLocation(null); }}
+                            className={`px-4 py-1 text-sm font-bold rounded transition-colors whitespace-nowrap ${selectedRack === 'STG' ? 'bg-amber-500 text-black' : 'bg-slate-800 text-slate-400 hover:text-amber-400'}`}
+                        >
+                            STAGING
+                        </button>
+                        <button
+                            onClick={() => { setSelectedRack('ADJ'); setSelectedLocation(null); }}
+                            className={`px-4 py-1 text-sm font-bold rounded transition-colors whitespace-nowrap ${selectedRack === 'ADJ' ? 'bg-purple-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-purple-400'}`}
+                        >
+                            ADJUSTMENT
+                        </button>
                     </div>
 
                     {/* Standard Racks Bar */}
@@ -333,7 +308,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                     {/* STANDARD GRID RENDERER */}
                     <div className="min-w-fit">
                         {/* Header Row for Bays */}
-                        <div className="flex mb-2 pl-16">
+                        <div className="flex mb-2 pl-24">
                             {Array.from({ length: currentBays }, (_, i) => i + 1).map(bay => (
                                 <div key={bay} className="flex-1 text-center text-xs font-bold text-slate-500 uppercase min-w-[3rem]">
                                     Bay {bay}
@@ -345,8 +320,8 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
                         {currentLevels.map(level => (
                             <div key={level} className="flex mb-2 h-16">
                                 {/* Level Label */}
-                                <div className="w-16 flex-none flex items-center justify-center text-xs font-bold text-slate-500 bg-slate-100 rounded-l-md border-r border-slate-200">
-                                    {level === 'Floor' ? 'Floor' : (selectedRack.startsWith('STG') || selectedRack.startsWith('ADJ') ? `Lvl ${level}` : `Lvl ${level}`)}
+                                <div className="w-24 flex-none flex items-center justify-center text-[10px] font-bold text-slate-500 bg-slate-100 rounded-l-md border-r border-slate-200 text-center px-1">
+                                    {level === 'Floor' ? 'Floor' : (['STG', 'ADJ'].includes(selectedRack) ? `PLT ${level}` : `Lvl ${level}`)}
                                 </div>
 
                                 {/* Cells */}

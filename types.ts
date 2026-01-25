@@ -70,30 +70,37 @@ export interface SavedPickList {
   createdAt: number;
 }
 
-export const STANDARD_RACKS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J'];
 
-// Helper for iteration
-export const STG_ROWS = Array.from({ length: 11 }, (_, i) => `STG-${String(i + 1).padStart(2, '0')}`); // STG-01 to STG-11
-export const ADJ_ROWS = Array.from({ length: 7 }, (_, i) => `ADJ-${String(i + 1).padStart(2, '0')}`); // ADJ-01 to ADJ-07
 
-// Define Area Dimensions
-export const AREA_CONFIG: Record<string, { bays: number, levels: string[] }> = {
-  // Staging Rows (R1-R11), 12 Bays, Floor Only
-  ...Object.fromEntries(STG_ROWS.map(r => [r, { bays: 12, levels: ['Floor'] }])),
-
-  // Adjustment Rows (R1-R7), 4 Bays, Floor Only
-  ...Object.fromEntries(ADJ_ROWS.map(r => [r, { bays: 4, levels: ['Floor'] }])),
-
-  // Standard Racks: 12 Bays, 4 Levels
-  ...Object.fromEntries(STANDARD_RACKS.map(r => [r, { bays: 12, levels: ['3', '2', '1', 'Floor'] }])),
-};
-
-export const ALL_AREAS = Object.keys(AREA_CONFIG);
-// Legacy fallbacks (may remove later)
+// Legacy fallbacks (needed for AREA_CONFIG)
 export const BAYS_PER_RACK = 12;
 export const LEVELS = ['3', '2', '1', 'Floor'];
 
-export type ViewState = 'dashboard' | 'entry' | 'outbound' | 'list' | 'history' | 'map' | 'products' | 'settings' | 'move';
+export const STANDARD_RACKS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J'];
+
+// Define Area Dimensions
+export const AREA_CONFIG: Record<string, { bays: number, levels: string[] }> = {
+  // Staging Area, 11 Bays, Levels 12 down to 1
+  'STG': {
+    bays: 11,
+    levels: Array.from({ length: 12 }, (_, i) => String(12 - i))
+  },
+
+  // Adjustment Area, 7 Bays, Levels 4 down to 1
+  'ADJ': {
+    bays: 7,
+    levels: ['4', '3', '2', '1']
+  },
+
+  // Standard Racks (A-J)
+  ...Object.fromEntries(STANDARD_RACKS.map(r => [r, { bays: BAYS_PER_RACK, levels: LEVELS }])),
+};
+
+
+export const ALL_AREAS = Object.keys(AREA_CONFIG);
+
+
+export type ViewState = 'dashboard' | 'entry' | 'outbound' | 'list' | 'history' | 'map' | 'products' | 'move';
 
 // Utility for safe ID generation
 export const generateId = () => {

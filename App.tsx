@@ -32,7 +32,8 @@ import WarehouseMap from './components/WarehouseMap';
 import ProductPage from './components/ProductPage';
 import ItemEntriesPage from './components/ItemEntriesPage';
 import InventoryList from './components/InventoryList';
-import SettingsPage from './components/SettingsPage';
+
+
 import StockMovementForm from './components/StockMovementForm';
 import ConfirmModal, { ModalType } from './components/ConfirmModal';
 import { GASService } from './services/gasApi';
@@ -137,6 +138,14 @@ function App() {
   });
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // Force update URL from Env Var if changed (Fixes stale local storage)
+  useEffect(() => {
+    if (DEFAULT_GAS_URL && gasConfig.url !== DEFAULT_GAS_URL) {
+      console.log('NexusWMS: Updating GAS URL from environment variable');
+      setGasConfig(prev => ({ ...prev, url: DEFAULT_GAS_URL }));
+    }
+  }, []);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
 
@@ -150,14 +159,14 @@ function App() {
 
   // -- Auto-Sync Effect --
   const isInitialSyncDone = React.useRef(false);
+  const hasLoadedRef = React.useRef(false);
 
   // Load from GAS on mount if enabled - Force Pull
   useEffect(() => {
     if (gasConfig.enabled && gasConfig.url) {
-      // Pass 'false' for pushLocalToCloud to indicate PULL mode
-      // Pass 'false' for silent to allow logging
-      // Pass 'false' for forcePushEmpty
-      // True for 'isMount' (new param concept, or just rely on behavior)
+      if (hasLoadedRef.current) return;
+      hasLoadedRef.current = true;
+
       handleSyncGas(false);
     }
   }, []); // Run once on mount
@@ -172,7 +181,7 @@ function App() {
       return;
     }
 
-    setIsSyncing(true);
+    if (!silent) setIsSyncing(true);
     try {
       if (pushLocalToCloud) {
         // Push Mode: Save all local data to Cloud
@@ -180,7 +189,8 @@ function App() {
           inventory,
           products,
           transactions,
-          locations: masterLocations
+          locations: masterLocations,
+          pickLists: savedPickLists
         });
         if (!silent) console.log('NexusWMS: Auto-saved to Google Sheets.');
       } else {
@@ -193,6 +203,7 @@ function App() {
         if (data.products) setProducts(data.products);
         if (data.transactions) setTransactions(data.transactions);
         if (data.locations) setMasterLocations(data.locations);
+        if (data.pickLists) setSavedPickLists(data.pickLists);
 
         isInitialSyncDone.current = true;
         if (!silent) console.log('NexusWMS: Initial data loaded from Google Sheets.');
@@ -201,7 +212,7 @@ function App() {
       console.error(error);
       if (!silent) showAlert('Sync Error', error.message || 'Failed to sync with Google Sheets');
     } finally {
-      setIsSyncing(false);
+      if (!silent) setIsSyncing(false);
     }
   };
 
@@ -216,7 +227,7 @@ function App() {
     }, 1000); // 1 second debounce (User requested faster than 2s)
 
     return () => clearTimeout(timer);
-  }, [inventory, products, transactions, masterLocations, gasConfig.enabled, gasConfig.url]);
+  }, [inventory, products, transactions, masterLocations, savedPickLists, gasConfig.enabled, gasConfig.url]);
 
   // -- Helpers --
   const logTransaction = (
@@ -245,8 +256,8 @@ function App() {
 
   // -- Permissions Logic --
   const PERMISSIONS: Record<UserRole, ViewState[]> = {
-    ADMIN: ['dashboard', 'entry', 'outbound', 'list', 'map', 'history', 'products', 'settings', 'move'],
-    MANAGER: ['dashboard', 'entry', 'outbound', 'list', 'map', 'history', 'products', 'settings', 'move'],
+    ADMIN: ['dashboard', 'entry', 'outbound', 'list', 'map', 'history', 'products', 'move'],
+    MANAGER: ['dashboard', 'entry', 'outbound', 'list', 'map', 'history', 'products', 'move'],
     OPERATOR: ['dashboard', 'entry', 'outbound', 'list', 'map', 'move'],
     AUDITOR: ['dashboard', 'list', 'map', 'history'],
     LOGISTICS: ['dashboard', 'list', 'map']
@@ -567,6 +578,8 @@ function App() {
     <div className="flex h-screen bg-[url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=2670&auto=format&fit=crop')] bg-cover bg-center text-slate-100 relative">
       <div className="absolute inset-0 bg-background/90 backdrop-blur-sm"></div>
 
+
+
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
@@ -613,11 +626,10 @@ function App() {
             )}
 
             {/* Master Data Section */}
-            {(hasAccess('products') || hasAccess('settings')) && (
+            {(hasAccess('products')) && (
               <>
                 <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Master Data</p>
                 <SidebarItem id="products" icon={Boxes} label="Products" />
-                <SidebarItem id="settings" icon={Settings} label="System Settings" />
                 <div className="my-4 border-t border-slate-100"></div>
               </>
             )}
@@ -864,45 +876,7 @@ function App() {
             />
           )}
 
-          {/* Settings View */}
-          {view === 'settings' && hasAccess('settings') && (
-            <SettingsPage
-              gasConfig={gasConfig}
-              onSyncGas={() => handleSyncGas(false, false)} // Manual Pull (Refresh) from Cloud
-              isSyncing={isSyncing}
-              onInitializeApp={() => {
-                // isInitializingRef was removed, but we want to allow this specific manual flush
-                isInitialSyncDone.current = true;
-                setTransactions([]);
-                setInventory([]);
-                // Also clear location override if needed, but masterLocations usually static?
-                // Actually if we want to reset EVERYTHING:
-                // setMasterLocations(INITIAL_LOCATIONS...); // If we wanted. For now just data.
 
-                showAlert('App Initialized', 'History and Inventory cleared. Syncing empty state to cloud...', 'info');
-
-                // FORCE PUSH EMPTY STATE IMMEDIATELY
-                // We use setTimeout to allow state to settle, although in React 18+ batching might handle it.
-                // Better to just call sync with empty arrays directly passed if possible, but handleSyncGas reads from state.
-                // State updates are async. We need to be careful.
-                // Actually handleSyncGas reads from CLOSURE or REF? It reads from state dependencies in useEffect, 
-                // but if called directly it reads current render scope which is old? 
-                // Let's rely on the useEffect that watches inventory?
-                // The useEffect will trigger because we updated inventory/transactions.
-                // We just need to ensure that `isInitializingRef.current` is TRUE when that effect fires.
-
-                // It is already set to true above.
-                // The useEffect in App.tsx (line 222) checks this flag to decide if it should forcePushEmpty.
-                // So this logic SHOULD work, assuming the effect fires.
-
-                // Let's strengthen it by clearing Products too if "Initialize App" means "Factory Reset".
-                // Usually "Initialize" keeps master data but clears transaction data.
-                // User said "Initialize Application does not work".
-                // Problem: handleSyncGas logic at line 164 prevents pushing empty if local is empty.
-                // Fix: Ensure forcePushEmpty (3rd arg) is respected.
-              }}
-            />
-          )}
 
           {/* Stock Movement View */}
           {view === 'move' && (

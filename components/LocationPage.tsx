@@ -213,7 +213,8 @@ const LocationPage: React.FC<LocationPageProps> = ({ locations, onUpdateLocation
                     onChange={e => setFormData({ ...formData, rack: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
                   >
-                    <option value="STAGE">STAGE</option>
+                    <option value="STG">STG</option>
+                    <option value="ADJ">ADJ</option>
                     {STANDARD_RACKS.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </div>

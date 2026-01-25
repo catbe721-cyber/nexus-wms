@@ -158,7 +158,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
     // Auto-assign to Staging R1 if no location provided
     const finalLocations = locations.length > 0
       ? locations
-      : [{ rack: 'STG-01', bay: 1, level: 'Floor' }];
+      : [{ rack: 'STG', bay: 1, level: '1' }];
 
     onSave({
       productCode: selectedProduct.productCode,
