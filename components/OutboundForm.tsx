@@ -236,16 +236,15 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
     // AI Simulation: Extracting data from your provided image
     setTimeout(() => {
       const rawScannedItems = [
-        { name: 'Sushi Tray HP 65', qty: 15, possibleCode: 'UFTS0010' },
-        { name: 'BH-20 Sushi Tray', qty: 20, possibleCode: 'UFTS0001' },
-        { name: 'Nori Half Size', qty: 2, possibleCode: 'UV000008' },
-        { name: 'SFLM-2 LID', qty: 5, possibleCode: 'UFTP0002' },
-        { name: 'SBM-24C', qty: 5, possibleCode: 'UFTP0001' },
-        { name: 'Ginger', qty: 10, possibleCode: 'UV000007' },
-        { name: 'Soy Sauce', qty: 10, possibleCode: 'UE000013' },
-        { name: 'Sugar', qty: 5, possibleCode: 'UE000023' },
-        { name: 'Rice', qty: 1, possibleCode: 'UE000004' },
-        { name: 'Tape', qty: 3, possibleCode: 'FB000012' },
+        { name: 'BH-20 Sushi Tray/BX -20', qty: 31, possibleCode: 'UFTS0001' },
+        { name: 'Nori Half Size', qty: 1, possibleCode: 'UV000008' },
+        { name: 'Sushi Box', qty: 1, possibleCode: 'UFHS0001' },
+        { name: 'GINGER(5G)', qty: 5, possibleCode: 'UV000007' },
+        { name: 'Soy Sauce', qty: 5, possibleCode: 'UE000013' },
+        { name: 'Fine Sugar', qty: 9, possibleCode: 'UE000023' },
+        { name: 'Vinegar', qty: 9, possibleCode: 'UE000021' },
+        { name: 'Costco Family Pack California Roll', qty: 1, possibleCode: 'UE000031' },
+        { name: 'Poke Bowl label', qty: 1, possibleCode: 'UFLP0001' },
       ];
 
       setCart(prevCart => {
