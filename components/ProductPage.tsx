@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { Product, generateId } from '../types';
 import { Plus, Upload, Trash2, Edit, Save, X, Search, Boxes, AlertTriangle } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
+import { smartSearch } from '../utils';
 
 interface ProductPageProps {
   products: Product[];
@@ -200,8 +201,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
   };
 
   const filteredProducts = products.filter(p =>
-    (p.productCode || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+    smartSearch(p, ['productCode', 'name'], searchTerm)
   );
 
   return (

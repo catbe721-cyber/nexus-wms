@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { InventoryItem } from "../types";
+import { InventoryItem, Product } from "../types";
 
 const getAIClient = () => {
   // Use Vite environment variable
@@ -8,7 +8,7 @@ const getAIClient = () => {
   if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY') {
     throw new Error("API Key not found or invalid. Please ensure VITE_GEMINI_API_KEY is set in .env");
   }
-  return new GoogleGenAI(apiKey);
+  return new GoogleGenAI({ apiKey });
 };
 
 export const analyzeInventory = async (query: string, inventory: InventoryItem[]) => {
@@ -39,7 +39,7 @@ export const analyzeInventory = async (query: string, inventory: InventoryItem[]
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
 
@@ -50,31 +50,39 @@ export const analyzeInventory = async (query: string, inventory: InventoryItem[]
   }
 };
 
-export const parsePickList = async (base64Image: string) => {
+export const parsePickList = async (base64Image: string, products: Product[]) => {
   try {
     const ai = getAIClient();
 
     // Extract base64 data if it has the prefix
     const cleanBase64 = base64Image.split(',')[1] || base64Image;
 
+    const productList = products.map(p => `Code: ${p.productCode}, Name: ${p.name}`).join('\n');
+
     const prompt = `
-      You are a data extraction OCR engine. 
+      You are a data extraction OCR engine and warehouse product matcher. 
       Analyze the provided image of a warehouse pick list table.
-      Extract all rows where the Quantity (Qty) is explicitly greater than 0.
       
+      CRITICAL: You MUST match the items found in the image to the following Master Product List:
+      ${productList}
+
+      Extract all rows where the Quantity (Qty) is explicitly greater than 0.
+      For each item found:
+      1. Find the best matching Product Code from the Master Product List above.
+      2. If no clear match is found, provide the name as written in the image.
+
       Return the data strictly as a JSON array of objects. 
       Do not include markdown formatting (like \`\`\`json). 
-      Do not include any introductory or concluding text.
       
       Target JSON Structure:
       [
-        { "code": "product_code_string_or_empty", "name": "item_name_string", "qty": number }
+        { "code": "matched_product_code", "name": "item_name_from_image", "qty": number }
       ]
     `;
 
     console.log("Gemini Prompt:", prompt);
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       contents: [
         {
           role: 'user',

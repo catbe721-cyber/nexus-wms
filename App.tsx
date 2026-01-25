@@ -22,7 +22,8 @@ import {
   LogOut,
   ChevronUp,
   Settings,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Sparkles
 } from 'lucide-react';
 
 import { Product, InventoryItem, ViewState, InventoryLocation, Transaction, MasterLocation, AREA_CONFIG, generateId, SavedPickList } from './types';
@@ -32,7 +33,7 @@ import WarehouseMap from './components/WarehouseMap';
 import ProductPage from './components/ProductPage';
 import ItemEntriesPage from './components/ItemEntriesPage';
 import InventoryList from './components/InventoryList';
-
+import SmartPickPage from './components/SmartPickPage';
 
 import StockMovementForm from './components/StockMovementForm';
 import ConfirmModal, { ModalType } from './components/ConfirmModal';
@@ -64,6 +65,7 @@ const INITIAL_PRODUCTS: Product[] = [
   { productCode: 'UFTS0002', name: 'BX61', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 10 },
   { productCode: 'FHE00001', name: '15*15*5', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 10 },
   { productCode: 'FB000012', name: 'Tape', defaultCategory: 'PKG', defaultUnit: 'ROL', minStockLevel: 10 },
+  { productCode: 'UFME0001', name: 'Costco 454g CAB Beef Chuck Rolls-USA-V2-327-film', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 15 },
 ];
 
 // URL from environment variable
@@ -202,6 +204,24 @@ function App() {
         // Pull Mode: Load from Cloud (Priority Source)
         const data = await GASService.fetchData(gasConfig.url);
 
+        // SAFETY CHECK: Prevent overwriting with suspiciously empty data
+        const cloudInventoryCount = data.inventory?.length || 0;
+        const localInventoryCount = inventory.length;
+
+        // If local has data but cloud is empty or significantly smaller (>50% loss)
+        if (localInventoryCount > 5 && cloudInventoryCount < localInventoryCount * 0.5) {
+          console.warn('NexusWMS: Cloud data is suspiciously small. Skipping overwrite to protect local data.');
+          showAlert(
+            'Sync Warning',
+            `Cloud returned ${cloudInventoryCount} items but you have ${localInventoryCount} locally. ` +
+            'This might indicate a problem with your Google Sheet. Data was NOT overwritten. ' +
+            'Please verify your Google Sheet data before refreshing again.',
+            'warning'
+          );
+          // Do NOT set isInitialSyncDone to true, keeping the save lock active
+          return;
+        }
+
         // Overwrite local state with Cloud Data
         // We trust the cloud as the source of truth on startup
         if (data.inventory) setInventory(data.inventory);
@@ -213,6 +233,7 @@ function App() {
         isInitialSyncDone.current = true;
         if (!silent) console.log('NexusWMS: Initial data loaded from Google Sheets.');
       }
+
     } catch (error: any) {
       console.error(error);
       if (!silent) showAlert('Sync Error', error.message || 'Failed to sync with Google Sheets');
@@ -256,7 +277,7 @@ function App() {
       category: resolvedCategory,
       quantity: qty,
       unit: resolvedUnit,
-      locationInfo: locationOverride || item.locations.map(l => `${l.rack}-${l.bay}`).join(', '),
+      locationInfo: locationOverride || item.locations.map(l => `${l.rack}-${l.bay}-${l.level}`).join(', '),
       notes: locationOverride ? 'Manual Adjustment via Map' : 'System Entry'
     };
     setTransactions(prev => [newTx, ...prev]);
@@ -341,7 +362,7 @@ function App() {
         category: resolvedCategory,
         quantity: -qtyToRemove,
         unit: resolvedUnit,
-        locationInfo: item.locations.map(l => `${l.rack}-${l.bay}`).join(', '),
+        locationInfo: item.locations.map(l => `${l.rack}-${l.bay}-${l.level}`).join(', '),
         notes: 'System Entry'
       };
       newTransactions.push(tx);
@@ -385,8 +406,8 @@ function App() {
       // Move logic: Update item location
       setInventory(prev => prev.map(i => i.id === item.id ? item : i));
       // Log move
-      const fromLoc = moveContext?.previousLocation ? `${moveContext.previousLocation.rack}-${moveContext.previousLocation.bay}` : 'Unknown';
-      const toLoc = item.locations[0] ? `${item.locations[0].rack}-${item.locations[0].bay}` : 'Unknown';
+      const fromLoc = moveContext?.previousLocation ? `${moveContext.previousLocation.rack}-${moveContext.previousLocation.bay}-${moveContext.previousLocation.level}` : 'Unknown';
+      const toLoc = item.locations[0] ? `${item.locations[0].rack}-${item.locations[0].bay}-${item.locations[0].level}` : 'Unknown';
       logTransaction('ADJUSTMENT', item, 0, `Moved: ${fromLoc} -> ${toLoc}`);
     }
   };
@@ -401,60 +422,17 @@ function App() {
       return;
     }
 
-    const sourceLocString = `${sourceItem.locations[0].rack}-${sourceItem.locations[0].bay}-${sourceItem.locations[0].level}`;
-    const destLocString = `${destLoc.rack}-${destLoc.bay}-${destLoc.level}`;
-
     setInventory(prev => {
       const newInv = [...prev];
       const sourceIdx = newInv.findIndex(i => i.id === sourceId);
+      if (sourceIdx === -1) return prev;
 
-      if (sourceIdx === -1) return prev; // Should not happen
+      const src = newInv[sourceIdx];
+      // Defensive check in case state changed
+      if (qty > src.quantity) return prev;
 
       // Check if item exists at destination to merge
-      const destItemIdx = newInv.findIndex(i =>
-        i.productCode === sourceItem.productCode &&
-        i.locations[0].rack === destLoc.rack &&
-        i.locations[0].bay === destLoc.bay &&
-        i.locations[0].level === destLoc.level &&
-        i.id !== sourceId
-      );
-
-      if (destItemIdx !== -1) {
-        // Merge into destination
-        newInv[destItemIdx] = {
-          ...newInv[destItemIdx],
-          quantity: newInv[destItemIdx].quantity + qty,
-          updatedAt: Date.now()
-        };
-
-        // Handle Source
-        if (qty === sourceItem.quantity) {
-          // Full move -> Delete source
-          newInv.splice(sourceIdx, 1);
-        } else {
-          // Partial move -> Reduce source
-          newInv[sourceIdx] = {
-            ...sourceItem, // Use spread of sourceItem (from closure) but this is inside setState updater? 
-            // Safe enough if we assume source item structure hasn't drifted wildly, 
-            // but cleaner to use newInv[sourceIdx] if we hadn't modified it yet.
-            // Actually since sourceIdx might shift if we spliced? 
-            // Wait, if destItemIdx < sourceIdx, splicing destItem causes shift. 
-            // SAFEGUARDS:
-            // 1. Identify objects first.
-            // 2. Map new array.
-            // Current approach with splice is risky if indices change.
-            // Let's use map/filter for safety or be very careful with indices.
-          };
-        }
-      }
-
-      // Let's rewrite using safer immutable patterns to avoid index hell
-      // This is clearer and safer
-      let finalInv = [...prev];
-      const src = finalInv.find(i => i.id === sourceId);
-      if (!src) return prev;
-
-      const dest = finalInv.find(i =>
+      const destIdx = newInv.findIndex(i =>
         i.productCode === src.productCode &&
         i.locations[0].rack === destLoc.rack &&
         i.locations[0].bay === destLoc.bay &&
@@ -462,28 +440,45 @@ function App() {
         i.id !== sourceId
       );
 
-      if (dest) {
-        // MERGE CASE
-        // Update Dest
-        finalInv = finalInv.map(i => i.id === dest.id ? { ...i, quantity: i.quantity + qty, updatedAt: Date.now() } : i);
+      if (destIdx !== -1) {
+        // MERGE: Update Dest
+        newInv[destIdx] = {
+          ...newInv[destIdx],
+          quantity: newInv[destIdx].quantity + qty,
+          updatedAt: Date.now()
+        };
 
-        // Update Source
+        // Handle Source
         if (qty === src.quantity) {
-          finalInv = finalInv.filter(i => i.id !== sourceId);
+          // Full move -> Delete source
+          newInv.splice(sourceIdx, 1);
         } else {
-          finalInv = finalInv.map(i => i.id === sourceId ? { ...i, quantity: i.quantity - qty, updatedAt: Date.now() } : i);
+          // Partial move -> Reduce source
+          newInv[sourceIdx] = {
+            ...src,
+            quantity: src.quantity - qty,
+            updatedAt: Date.now()
+          };
         }
       } else {
-        // NO MERGE CASE
+        // NO MERGE
         if (qty === src.quantity) {
           // Full Move: Update Location
-          finalInv = finalInv.map(i => i.id === sourceId ? { ...i, locations: [destLoc], updatedAt: Date.now() } : i);
+          newInv[sourceIdx] = {
+            ...src,
+            locations: [destLoc],
+            updatedAt: Date.now()
+          };
         } else {
           // Partial Move: Split
           // 1. Reduce Source
-          finalInv = finalInv.map(i => i.id === sourceId ? { ...i, quantity: i.quantity - qty, updatedAt: Date.now() } : i);
+          newInv[sourceIdx] = {
+            ...src,
+            quantity: src.quantity - qty,
+            updatedAt: Date.now()
+          };
           // 2. Add New
-          finalInv.push({
+          newInv.push({
             ...src,
             id: generateId(),
             quantity: qty,
@@ -492,9 +487,11 @@ function App() {
           });
         }
       }
-      return finalInv;
+      return newInv;
     });
 
+    const sourceLocString = `${sourceItem.locations[0].rack}-${sourceItem.locations[0].bay}-${sourceItem.locations[0].level}`;
+    const destLocString = `${destLoc.rack}-${destLoc.bay}-${destLoc.level}`;
     logTransaction('ADJUSTMENT', sourceItem, 0, `Moved ${qty} ${sourceItem.unit} from ${sourceLocString} to ${destLocString}`);
   };
 
@@ -568,13 +565,13 @@ function App() {
           setSidebarOpen(false);
           if (id === 'entry') setEditingItem(null);
         }}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all mb-1 relative ${view === id
-          ? 'bg-primary/90 text-white shadow-[0_0_15px_rgba(139,92,246,0.5)] border border-primary/50'
-          : 'text-slate-400 hover:bg-white/5 hover:text-primary font-medium'
+        className={`w-full flex items-center gap-3 px-4 py-4 rounded-xl transition-all mb-3 relative ${view === id
+          ? 'bg-primary/20 text-white shadow-[0_0_15px_rgba(139,92,246,0.2)]'
+          : 'bg-transparent text-slate-100 hover:bg-white/5'
           }`}
       >
-        <Icon className={`w-5 h-5 ${view === id ? 'text-white' : 'text-slate-500 group-hover:text-primary'}`} />
-        <span className="tracking-wide">{label}</span>
+        <Icon className={`w-6 h-6 ${view === id ? 'text-primary' : 'text-slate-400 group-hover:text-white'}`} />
+        <span className={`font-bold tracking-wide text-lg ${view === id ? 'text-white' : 'text-slate-400 group-hover:text-white'}`}>{label}</span>
         {alert && (
           <span className="absolute right-4 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border border-white"></span>
         )}
@@ -616,6 +613,7 @@ function App() {
             <SidebarItem id="entry" icon={PackagePlus} label="Inbound" />
             <SidebarItem id="outbound" icon={PackageMinus} label="Outbound" />
             <SidebarItem id="move" icon={ArrowRightLeft} label="Move Stock" />
+            <SidebarItem id="smart-pick" icon={Sparkles} label="Smart Pick" />{/* INTEGRATION POINT */}
             <div className="my-6"></div>
 
             {/* Inventory Section */}
@@ -807,6 +805,8 @@ function App() {
             />
           )}
 
+
+
           {/* Inventory List View (Summary) */}
           {view === 'list' && (
             <InventoryList inventory={inventory} products={products} />
@@ -880,6 +880,16 @@ function App() {
           )}
 
 
+
+
+          {/* Smart Pick View */}
+          {view === 'smart-pick' && (
+            <SmartPickPage
+              inventory={inventory}
+              products={products}
+              onProcessOutbound={handleOutboundProcess}
+            />
+          )}
 
           {/* Stock Movement View */}
           {view === 'move' && (

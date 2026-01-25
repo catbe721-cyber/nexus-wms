@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Product, InventoryItem, InventoryLocation, MasterLocation } from '../types';
+import { smartSearch } from '../utils';
 import { X, CheckCircle, Save, MapPin, Lock, Check } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
 
@@ -69,8 +70,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
 
   // Filter products based on search
   const filteredProducts = products.filter(p =>
-    (p.productCode || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+    smartSearch(p, ['productCode', 'name'], searchTerm)
   ).slice(0, 10);
 
   // Filter Locations Logic

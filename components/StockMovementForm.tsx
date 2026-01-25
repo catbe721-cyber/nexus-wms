@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, InventoryItem, MasterLocation } from '../types';
 import { ArrowRightLeft, Search, MapPin, Box, ArrowRight, CheckCircle, Check } from 'lucide-react';
+import { smartSearch } from '../utils';
 
 interface StockMovementFormProps {
     products: Product[];
@@ -40,8 +41,7 @@ const StockMovementForm: React.FC<StockMovementFormProps> = ({
         if (!searchTerm) return [];
         const term = searchTerm.toLowerCase();
         return inventory.filter(item =>
-            item.productCode.toLowerCase().includes(term) ||
-            item.productName.toLowerCase().includes(term)
+            smartSearch(item, ['productCode', 'productName'], searchTerm)
         ).slice(0, 50); // Limit results
     }, [searchTerm, inventory]);
 
@@ -281,10 +281,11 @@ const StockMovementForm: React.FC<StockMovementFormProps> = ({
                         <input
                             type="number"
                             inputMode="decimal"
-                            min="1"
+                            step="any"
+                            min="0"
                             max={selectedSourceItem?.quantity || 0}
                             value={moveQty}
-                            onChange={e => setMoveQty(parseInt(e.target.value) || 0)}
+                            onChange={e => setMoveQty(parseFloat(e.target.value) || 0)}
                             className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white font-bold text-xl outline-none focus:border-blue-500"
                         />
                     </div>

@@ -3,6 +3,7 @@ import { Product, InventoryItem, SavedPickList, getBestLocationScore } from '../
 import { PackageMinus, CheckCircle, ShoppingCart, Trash2, Plus, AlertCircle, Save, FolderOpen, X, ScanLine, Image as ImageIcon, Sparkles, Loader2 } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
 import { parsePickList } from '../services/geminiService';
+import { smartSearch } from '../utils';
 
 interface OutboundFormProps {
   products: Product[];
@@ -130,10 +131,11 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
 
     inventory.forEach(item => {
       // search match?
-      const code = item.productCode.toLowerCase();
-      const name = item.productName.toLowerCase();
+      // Use smart search for multi-keyword matching
+      // We check against both the inventory item fields AND the potential full product details if available
+      const matchesSearch = smartSearch(item, ['productCode', 'productName'], term);
 
-      if (code.includes(term) || name.includes(term)) {
+      if (matchesSearch) {
         if (!matches.has(item.productCode)) {
           // Try to find full product details
           const masterConfig = products.find(p => p.productCode === item.productCode);
@@ -235,44 +237,30 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
     setIsScanning(true);
 
     try {
-      const rawScannedItems = await parsePickList(scanImage);
+      const rawScannedItems = await parsePickList(scanImage, products);
 
-      setCart(prevCart => {
-        const newCart = [...prevCart];
+      const newScanCart: CartItem[] = [];
 
-        rawScannedItems.forEach((scanned: any) => {
-          // Extra fuzzy matching
-          const product = products.find(p => {
-            const pCode = p.productCode.toLowerCase();
-            const pName = p.name.toLowerCase();
-            const sName = (scanned.name || '').toLowerCase();
-            const sCode = (scanned.code || scanned.possibleCode || '').toLowerCase();
+      rawScannedItems.forEach((scanned: any) => {
+        // Now we trust the AI to have matched the code if possible
+        const product = products.find(p => p.productCode === scanned.code);
 
-            return (
-              pCode === sCode ||
-              pName === sName ||
-              (sName && pName.includes(sName.split(' ')[0])) || // Match first word
-              (sName && sName.includes(pCode)) ||
-              (sName && sName.includes('sflm-2') && pCode === 'UFTP0002') ||
-              (sName && sName.includes('sbm-24c') && pCode === 'UFTP0001')
-            );
-          });
-
-          if (product && scanned.qty > 0) {
-            const existingIdx = newCart.findIndex(c => c.product.productCode === product.productCode);
-            if (existingIdx > -1) {
-              newCart[existingIdx] = {
-                ...newCart[existingIdx],
-                requestQty: newCart[existingIdx].requestQty + scanned.qty
-              };
-            } else {
-              newCart.push({ product, requestQty: scanned.qty });
-            }
+        if (product && scanned.qty > 0) {
+          // Check if product already in newScanCart (duplicate lines in scan)
+          const existingIdx = newScanCart.findIndex(c => c.product.productCode === product.productCode);
+          if (existingIdx > -1) {
+            newScanCart[existingIdx] = {
+              ...newScanCart[existingIdx],
+              requestQty: newScanCart[existingIdx].requestQty + scanned.qty
+            };
+          } else {
+            newScanCart.push({ product, requestQty: scanned.qty });
           }
-        });
-
-        return newCart;
+        }
       });
+
+      // User requested to CLEAR existing cart before adding scan results
+      setCart(newScanCart);
 
       setShowScanModal(false);
       setScanImage(null);
@@ -467,34 +455,50 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
                 <p>List is empty</p>
               </div>
             ) : (
-              cart.map((c, idx) => (
-                <div key={idx} className="bg-slate-800/40 p-3 rounded-lg border border-white/5 flex items-center justify-between group hover:border-primary/30 transition-colors">
-                  <div>
-                    <p className="font-bold text-slate-200">{c.product.name}</p>
-                    <p className="text-xs text-slate-500 font-mono">{c.product.productCode}</p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min="1"
-                        max={getProductAvailability(c.product.productCode) + c.requestQty} // Allow editing up to total available + what's already in this cart slot
-                        value={c.requestQty}
-                        onChange={(e) => {
-                          const newQty = parseInt(e.target.value) || 0;
-                          // Use functional update to avoid stale closure issues if checking availability strictly
-                          setCart(prev => prev.map((item, i) => i === idx ? { ...item, requestQty: newQty } : item));
-                        }}
-                        className="w-20 px-2 py-1 bg-black/40 border border-white/10 rounded text-center font-bold text-white outline-none focus:border-primary"
-                      />
-                      <span className="text-xs text-slate-500 font-normal">{c.product.defaultUnit}</span>
+              cart.map((c, idx) => {
+                const totalStock = inventory
+                  .filter(i => i.productCode === c.product.productCode)
+                  .reduce((acc, i) => acc + i.quantity, 0);
+
+                const totalRequested = cart
+                  .filter(item => item.product.productCode === c.product.productCode)
+                  .reduce((acc, item) => acc + item.requestQty, 0);
+
+                const isOverStock = totalRequested > totalStock;
+
+                return (
+                  <div key={idx} className={`p-3 rounded-lg border flex items-center justify-between group transition-colors relative ${isOverStock ? 'bg-red-500/10 border-red-500/50 hover:bg-red-500/20' : 'bg-slate-800/40 border-white/5 hover:border-primary/30'}`}>
+                    {isOverStock && (
+                      <div className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg flex items-center gap-1 z-10">
+                        <AlertCircle className="w-3 h-3" />
+                        Insufficient Stock (Max {totalStock})
+                      </div>
+                    )}
+                    <div>
+                      <p className={`font-bold ${isOverStock ? 'text-red-300' : 'text-slate-200'}`}>{c.product.name}</p>
+                      <p className="text-xs text-slate-500 font-mono">{c.product.productCode}</p>
                     </div>
-                    <button onClick={() => handleRemoveFromCart(idx)} className="p-2 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded transition-colors">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          value={c.requestQty}
+                          onChange={(e) => {
+                            const newQty = parseInt(e.target.value) || 0;
+                            setCart(prev => prev.map((item, i) => i === idx ? { ...item, requestQty: newQty } : item));
+                          }}
+                          className={`w-20 px-2 py-1 bg-black/40 border rounded text-center font-bold outline-none focus:border-primary ${isOverStock ? 'border-red-500/50 text-red-300' : 'border-white/10 text-white'}`}
+                        />
+                        <span className="text-xs text-slate-500 font-normal">{c.product.defaultUnit}</span>
+                      </div>
+                      <button onClick={() => handleRemoveFromCart(idx)} className="p-2 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 
@@ -503,12 +507,30 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
             <button onClick={onCancel} className="text-slate-400 hover:text-white font-bold">Cancel</button>
             <button
               onClick={() => {
-                if (cart.length > 0) {
+                const hasErrors = cart.some(c => {
+                  const totalStock = inventory
+                    .filter(i => i.productCode === c.product.productCode)
+                    .reduce((acc, i) => acc + i.quantity, 0);
+                  const totalRequested = cart
+                    .filter(item => item.product.productCode === c.product.productCode)
+                    .reduce((acc, item) => acc + item.requestQty, 0);
+                  return totalRequested > totalStock;
+                });
+
+                if (cart.length > 0 && !hasErrors) {
                   handleProcessOutbound();
                 }
               }}
-              disabled={cart.length === 0}
-              className="bg-green-500 hover:bg-green-600 disabled:opacity-50 disabled:grayscale text-white px-8 py-3 rounded-lg font-bold shadow-lg shadow-green-500/20 flex items-center gap-2 transition-all"
+              disabled={cart.length === 0 || cart.some(c => {
+                const totalStock = inventory
+                  .filter(i => i.productCode === c.product.productCode)
+                  .reduce((acc, i) => acc + i.quantity, 0);
+                const totalRequested = cart
+                  .filter(item => item.product.productCode === c.product.productCode)
+                  .reduce((acc, item) => acc + item.requestQty, 0);
+                return totalRequested > totalStock;
+              })}
+              className="bg-green-500 hover:bg-green-600 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed text-white px-8 py-3 rounded-lg font-bold shadow-lg shadow-green-500/20 flex items-center gap-2 transition-all"
             >
               <CheckCircle className="w-5 h-5" /> Process Outbound
             </button>
@@ -517,151 +539,157 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
       </div>
 
       {/* Save List Modal */}
-      {showSaveModal && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-white/10 p-6 rounded-xl shadow-2xl w-full max-w-md animate-in zoom-in-95">
-            <h3 className="text-xl font-bold text-white mb-4">Save Pick List</h3>
-            <input
-              autoFocus
-              type="text"
-              placeholder="List Name (e.g., 'Weekly Sushi Restock')"
-              value={newListName}
-              onChange={e => setNewListName(e.target.value)}
-              className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white mb-4 focus:ring-2 focus:ring-primary outline-none"
-            />
-            <div className="flex justify-end gap-3">
-              <button onClick={() => setShowSaveModal(false)} className="px-4 py-2 text-slate-400 hover:text-white">Cancel</button>
-              <button
-                onClick={handleSaveList}
-                disabled={!newListName.trim()}
-                className="px-4 py-2 bg-primary hover:bg-primary/80 text-white rounded-lg font-bold disabled:opacity-50"
-              >
-                Save List
-              </button>
+      {
+        showSaveModal && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 border border-white/10 p-6 rounded-xl shadow-2xl w-full max-w-md animate-in zoom-in-95">
+              <h3 className="text-xl font-bold text-white mb-4">Save Pick List</h3>
+              <input
+                autoFocus
+                type="text"
+                placeholder="List Name (e.g., 'Weekly Sushi Restock')"
+                value={newListName}
+                onChange={e => setNewListName(e.target.value)}
+                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white mb-4 focus:ring-2 focus:ring-primary outline-none"
+              />
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setShowSaveModal(false)} className="px-4 py-2 text-slate-400 hover:text-white">Cancel</button>
+                <button
+                  onClick={handleSaveList}
+                  disabled={!newListName.trim()}
+                  className="px-4 py-2 bg-primary hover:bg-primary/80 text-white rounded-lg font-bold disabled:opacity-50"
+                >
+                  Save List
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Load List Modal */}
-      {showLoadModal && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-white/10 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[80vh] animate-in zoom-in-95">
-            <div className="p-6 border-b border-white/10 flex justify-between items-center">
-              <h3 className="text-xl font-bold text-white">Load Saved List</h3>
-              <button onClick={() => setShowLoadModal(false)} className="text-slate-400 hover:text-white"><X className="w-6 h-6" /></button>
-            </div>
-            <div className="p-6 overflow-y-auto flex-1 space-y-3">
-              {savedPickLists.length === 0 ? (
-                <p className="text-center text-slate-500 py-8">No saved lists found.</p>
-              ) : (
-                savedPickLists.map(list => (
-                  <div key={list.id} className="bg-slate-800/50 p-4 rounded-lg border border-white/5 flex items-center justify-between hover:border-primary/30 group">
-                    <div>
-                      <p className="font-bold text-white text-lg">{list.name}</p>
-                      <p className="text-slate-500 text-sm">{list.items.length} items • {new Date(list.createdAt).toLocaleDateString()}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => handleLoadList(list)}
-                        className="px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-primary rounded-lg text-sm font-bold border border-primary/20"
-                      >
-                        Load
-                      </button>
-                      <button
-                        onClick={() => onDeleteList(list.id)}
-                        className="p-2 text-slate-600 hover:text-red-400 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      {/* AI Scan Modal */}
-      {showScanModal && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-          <div className="bg-slate-900 border border-white/10 rounded-xl shadow-2xl w-full max-w-xl flex flex-col animate-in zoom-in-95 overflow-hidden">
-            <div className="p-4 border-b border-white/10 flex justify-between items-center bg-slate-800/50">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-amber-400" />
-                <h3 className="text-lg font-bold text-white font-display uppercase tracking-wider">AI Pick List Scanner</h3>
+      {
+        showLoadModal && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 border border-white/10 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[80vh] animate-in zoom-in-95">
+              <div className="p-6 border-b border-white/10 flex justify-between items-center">
+                <h3 className="text-xl font-bold text-white">Load Saved List</h3>
+                <button onClick={() => setShowLoadModal(false)} className="text-slate-400 hover:text-white"><X className="w-6 h-6" /></button>
               </div>
-              <button onClick={() => setShowScanModal(false)} className="text-slate-400 hover:text-white"><X className="w-6 h-6" /></button>
-            </div>
-
-            <div className="p-8 flex flex-col items-center gap-6">
-              {!scanImage ? (
-                <label className="w-full aspect-video border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-amber-400/50 hover:bg-amber-400/5 cursor-pointer transition-all group">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (rv) => setScanImage(rv.target?.result as string);
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                  <div className="bg-white/5 p-4 rounded-full group-hover:bg-amber-400/20 group-hover:scale-110 transition-all">
-                    <ImageIcon className="w-10 h-10 text-slate-500 group-hover:text-amber-400" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-white font-bold">Upload Pick List Photo</p>
-                    <p className="text-slate-500 text-sm">Drag and drop or click to browse</p>
-                  </div>
-                </label>
-              ) : (
-                <div className="w-full space-y-4">
-                  <div className="relative rounded-xl overflow-hidden border border-white/10 aspect-video bg-black/40">
-                    <img src={scanImage} alt="Pick List Scan" className="w-full h-full object-contain" />
-                    {isScanning && (
-                      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex flex-col items-center justify-center gap-3">
-                        <Loader2 className="w-10 h-10 text-amber-400 animate-spin" />
-                        <p className="text-amber-400 font-bold animate-pulse">Analyzing Items...</p>
-                        <div className="w-48 h-1 bg-white/10 rounded-full overflow-hidden mt-2">
-                          <div className="h-full bg-amber-400 animate-[progress_2s_ease-in-out_infinite]"></div>
-                        </div>
+              <div className="p-6 overflow-y-auto flex-1 space-y-3">
+                {savedPickLists.length === 0 ? (
+                  <p className="text-center text-slate-500 py-8">No saved lists found.</p>
+                ) : (
+                  savedPickLists.map(list => (
+                    <div key={list.id} className="bg-slate-800/50 p-4 rounded-lg border border-white/5 flex items-center justify-between hover:border-primary/30 group">
+                      <div>
+                        <p className="font-bold text-white text-lg">{list.name}</p>
+                        <p className="text-slate-500 text-sm">{list.items.length} items • {new Date(list.createdAt).toLocaleDateString()}</p>
                       </div>
-                    )}
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setScanImage(null)}
-                      disabled={isScanning}
-                      className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-bold transition-all disabled:opacity-50"
-                    >
-                      Change Image
-                    </button>
-                    <button
-                      onClick={handleScanImage}
-                      disabled={isScanning}
-                      className="flex-[2] py-3 bg-amber-500 hover:bg-amber-400 text-black rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50"
-                    >
-                      <Sparkles className="w-5 h-5" /> Process with AI
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="bg-amber-400/10 p-4 rounded-xl border border-amber-400/20 text-xs text-amber-200/70">
-                <p className="font-bold mb-1 flex items-center gap-1 uppercase tracking-tighter">
-                  <AlertCircle className="w-3 h-3" /> Pro Tip
-                </p>
-                Ensure the image is clear and the "Qty" column is visible. The system will match items by name or code and add them to your cart.
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleLoadList(list)}
+                          className="px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-primary rounded-lg text-sm font-bold border border-primary/20"
+                        >
+                          Load
+                        </button>
+                        <button
+                          onClick={() => onDeleteList(list.id)}
+                          className="p-2 text-slate-600 hover:text-red-400 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
+      {/* AI Scan Modal */}
+      {
+        showScanModal && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <div className="bg-slate-900 border border-white/10 rounded-xl shadow-2xl w-full max-w-xl flex flex-col animate-in zoom-in-95 overflow-hidden">
+              <div className="p-4 border-b border-white/10 flex justify-between items-center bg-slate-800/50">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-400" />
+                  <h3 className="text-lg font-bold text-white font-display uppercase tracking-wider">AI Pick List Scanner</h3>
+                </div>
+                <button onClick={() => setShowScanModal(false)} className="text-slate-400 hover:text-white"><X className="w-6 h-6" /></button>
+              </div>
+
+              <div className="p-8 flex flex-col items-center gap-6">
+                {!scanImage ? (
+                  <label className="w-full aspect-video border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-amber-400/50 hover:bg-amber-400/5 cursor-pointer transition-all group">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (rv) => setScanImage(rv.target?.result as string);
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <div className="bg-white/5 p-4 rounded-full group-hover:bg-amber-400/20 group-hover:scale-110 transition-all">
+                      <ImageIcon className="w-10 h-10 text-slate-500 group-hover:text-amber-400" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-white font-bold">Upload Pick List Photo</p>
+                      <p className="text-slate-500 text-sm">Drag and drop or click to browse</p>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="w-full space-y-4">
+                    <div className="relative rounded-xl overflow-hidden border border-white/10 aspect-video bg-black/40">
+                      <img src={scanImage} alt="Pick List Scan" className="w-full h-full object-contain" />
+                      {isScanning && (
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex flex-col items-center justify-center gap-3">
+                          <Loader2 className="w-10 h-10 text-amber-400 animate-spin" />
+                          <p className="text-amber-400 font-bold animate-pulse">Analyzing Items...</p>
+                          <div className="w-48 h-1 bg-white/10 rounded-full overflow-hidden mt-2">
+                            <div className="h-full bg-amber-400 animate-[progress_2s_ease-in-out_infinite]"></div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setScanImage(null)}
+                        disabled={isScanning}
+                        className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-bold transition-all disabled:opacity-50"
+                      >
+                        Change Image
+                      </button>
+                      <button
+                        onClick={handleScanImage}
+                        disabled={isScanning}
+                        className="flex-[2] py-3 bg-amber-500 hover:bg-amber-400 text-black rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50"
+                      >
+                        <Sparkles className="w-5 h-5" /> Process with AI
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-amber-400/10 p-4 rounded-xl border border-amber-400/20 text-xs text-amber-200/70">
+                  <p className="font-bold mb-1 flex items-center gap-1 uppercase tracking-tighter">
+                    <AlertCircle className="w-3 h-3" /> Pro Tip
+                  </p>
+                  Ensure the image is clear and the "Qty" column is visible. The system will match items by name or code and add them to your cart.
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
 
       <ConfirmModal
         isOpen={modalConfig.isOpen}
@@ -671,7 +699,7 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
         message={modalConfig.message}
         type={modalConfig.type}
       />
-    </div>
+    </div >
   );
 };
 

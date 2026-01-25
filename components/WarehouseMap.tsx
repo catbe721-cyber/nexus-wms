@@ -307,20 +307,20 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                     {/* STANDARD GRID RENDERER */}
                     <div className="min-w-fit">
                         {/* Header Row for Bays */}
-                        <div className="flex mb-2 pl-24">
+                        <div className="flex mb-2 pl-12">
                             {Array.from({ length: currentBays }, (_, i) => i + 1).map(bay => (
-                                <div key={bay} className="flex-1 text-center text-xs font-bold text-slate-500 uppercase min-w-[3rem]">
-                                    Bay {bay}
+                                <div key={bay} className="w-10 mx-0.5 text-center text-[10px] font-bold text-slate-500 uppercase flex-none">
+                                    {bay}
                                 </div>
                             ))}
                         </div>
 
                         {/* Grid Rows for Levels */}
                         {currentLevels.map(level => (
-                            <div key={level} className="flex mb-2 h-16">
+                            <div key={level} className="flex mb-2">
                                 {/* Level Label */}
-                                <div className="w-24 flex-none flex items-center justify-center text-[10px] font-bold text-slate-500 bg-slate-100 rounded-l-md border-r border-slate-200 text-center px-1">
-                                    {level === 'Floor' ? 'Floor' : (['STG', 'ADJ'].includes(selectedRack) ? `PLT ${level}` : `Lvl ${level}`)}
+                                <div className="w-12 flex-none flex items-center justify-center text-[10px] font-bold text-slate-500 text-center px-1">
+                                    {level === 'Floor' ? 'FLR' : (['STG', 'ADJ'].includes(selectedRack) ? `P${level}` : `L${level}`)}
                                 </div>
 
                                 {/* Cells */}
@@ -334,8 +334,8 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                             key={`${selectedRack}-${bay}-${level}`}
                                             onClick={() => setSelectedLocation({ rack: selectedRack, bay, level })}
                                             className={`
-                                             flex-1 mx-0.5 border rounded-sm cursor-pointer transition-all relative group
-                                             flex items-center justify-center text-xs min-w-[3rem]
+                                             mx-0.5 border rounded-sm cursor-pointer transition-all relative group
+                                             flex items-center justify-center text-xs w-10 h-10 aspect-square
                                              ${isSelected ? 'ring-2 ring-primary border-primary z-10 shadow-[0_0_10px_rgba(139,92,246,0.5)]' : 'border-white/5'}
                                              ${hasItems
                                                     ? 'bg-primary/20 hover:bg-primary/30 border-primary/30 text-primary-200'
@@ -344,11 +344,11 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                         >
                                             {hasItems ? (
                                                 <div className="flex flex-col items-center">
-                                                    <Package className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-primary'}`} />
-                                                    <span className={`font-bold ${isSelected ? 'text-white' : 'text-primary-100'}`}>{items.length}</span>
+                                                    <Package className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-primary'}`} />
+                                                    <span className={`text-[10px] font-bold leading-none ${isSelected ? 'text-white' : 'text-primary-100'}`}>{items.length}</span>
                                                 </div>
                                             ) : (
-                                                <span className="opacity-0 group-hover:opacity-50 text-[10px] text-slate-400">Empty</span>
+                                                <span className="opacity-0 group-hover:opacity-50 text-[10px] text-slate-400">.</span>
                                             )}
                                         </div>
                                     );

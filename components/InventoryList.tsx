@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { InventoryItem, Product } from '../types';
 import { FileText, AlertTriangle, Search, Package } from 'lucide-react';
+import { smartSearch } from '../utils';
 
 interface InventoryListProps {
     inventory: InventoryItem[];
@@ -43,9 +44,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
     }, [inventory, products]);
 
     const filteredItems = inventorySummary.filter(item =>
-        item.productCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.category.toLowerCase().includes(searchTerm.toLowerCase())
+        smartSearch(item, ['productCode', 'name', 'category'], searchTerm)
     );
 
     const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
