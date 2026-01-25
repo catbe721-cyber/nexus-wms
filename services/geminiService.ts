@@ -8,7 +8,7 @@ const getAIClient = () => {
   if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY') {
     throw new Error("API Key not found or invalid. Please ensure VITE_GEMINI_API_KEY is set in .env");
   }
-  return new GoogleGenAI({ apiKey });
+  return new GoogleGenAI(apiKey);
 };
 
 export const analyzeInventory = async (query: string, inventory: InventoryItem[]) => {
@@ -40,7 +40,7 @@ export const analyzeInventory = async (query: string, inventory: InventoryItem[]
 
     const response = await ai.models.generateContent({
       model: 'gemini-1.5-flash',
-      contents: prompt,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
 
     return response.text;
@@ -72,20 +72,27 @@ export const parsePickList = async (base64Image: string) => {
       ]
     `;
 
+    console.log("Gemini Prompt:", prompt);
     const response = await ai.models.generateContent({
       model: 'gemini-1.5-flash',
       contents: [
         {
-          inlineData: {
-            mimeType: 'image/jpeg',
-            data: cleanBase64
-          }
-        },
-        { text: prompt }
+          role: 'user',
+          parts: [
+            {
+              inlineData: {
+                mimeType: 'image/jpeg',
+                data: cleanBase64
+              }
+            },
+            { text: prompt }
+          ]
+        }
       ]
     });
 
     const text = response.text || '';
+    console.log("Gemini Raw Response:", text);
 
     // Attempt to extract JSON array using Regex to ignore conversational filler
     const jsonMatch = text.match(/\[[\s\S]*\]/);
@@ -98,8 +105,9 @@ export const parsePickList = async (base64Image: string) => {
       return JSON.parse(text);
     }
 
-  } catch (error) {
-    console.error("Gemini Vision Error:", error);
-    throw new Error("Failed to process pick list. Ensure the image is a clear warehouse document.");
+  } catch (error: any) {
+    console.error("Gemini Vision Detailed Error:", error);
+    if (error.response) console.error("Error Response:", error.response);
+    throw new Error(`Failed to process pick list: ${error.message || 'Check console for details'}`);
   }
 };
