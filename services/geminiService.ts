@@ -2,11 +2,11 @@ import { GoogleGenAI } from "@google/genai";
 import { InventoryItem } from "../types";
 
 const getAIClient = () => {
-  // Safe access to process.env to prevent "process is not defined" crashes in some browser environments
-  const apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : undefined;
+  // Use Vite environment variable
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
-  if (!apiKey) {
-    throw new Error("API Key not found. Please ensure process.env.API_KEY is configured.");
+  if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY') {
+    throw new Error("API Key not found or invalid. Please ensure VITE_GEMINI_API_KEY is set in .env");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -14,7 +14,7 @@ const getAIClient = () => {
 export const analyzeInventory = async (query: string, inventory: InventoryItem[]) => {
   try {
     const ai = getAIClient();
-    
+
     // Prepare a simplified version of inventory to save tokens
     const simplifiedInventory = inventory.map(item => ({
       name: item.productName,
@@ -39,7 +39,7 @@ export const analyzeInventory = async (query: string, inventory: InventoryItem[]
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-1.5-flash',
       contents: prompt,
     });
 
@@ -53,7 +53,7 @@ export const analyzeInventory = async (query: string, inventory: InventoryItem[]
 export const parsePickList = async (base64Image: string) => {
   try {
     const ai = getAIClient();
-    
+
     // Extract base64 data if it has the prefix
     const cleanBase64 = base64Image.split(',')[1] || base64Image;
 
@@ -73,26 +73,29 @@ export const parsePickList = async (base64Image: string) => {
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [
-          { inlineData: { mimeType: 'image/jpeg', data: cleanBase64 } },
-          { text: prompt }
-        ]
-      }
+      model: 'gemini-1.5-flash',
+      contents: [
+        {
+          inlineData: {
+            mimeType: 'image/jpeg',
+            data: cleanBase64
+          }
+        },
+        { text: prompt }
+      ]
     });
 
     const text = response.text || '';
-    
+
     // Attempt to extract JSON array using Regex to ignore conversational filler
     const jsonMatch = text.match(/\[[\s\S]*\]/);
-    
+
     if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+      return JSON.parse(jsonMatch[0]);
     } else {
-        // Fallback: try parsing the whole text if regex fails (unlikely if conversational)
-        // If the model returned "I'm sorry...", JSON.parse will throw, which is caught below.
-        return JSON.parse(text);
+      // Fallback: try parsing the whole text if regex fails (unlikely if conversational)
+      // If the model returned "I'm sorry...", JSON.parse will throw, which is caught below.
+      return JSON.parse(text);
     }
 
   } catch (error) {

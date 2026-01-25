@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Product, InventoryItem, SavedPickList, getBestLocationScore } from '../types';
 import { PackageMinus, CheckCircle, ShoppingCart, Trash2, Plus, AlertCircle, Save, FolderOpen, X, ScanLine, Image as ImageIcon, Sparkles, Loader2 } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
+import { parsePickList } from '../services/geminiService';
 
 interface OutboundFormProps {
   products: Product[];
@@ -229,46 +230,35 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
     setNewListName('');
   };
 
-  const handleScanImage = () => {
+  const handleScanImage = async () => {
     if (!scanImage) return;
     setIsScanning(true);
 
-    // AI Simulation: Extracting data from your provided image
-    setTimeout(() => {
-      const rawScannedItems = [
-        { name: 'BH-20 Sushi Tray/BX -20', qty: 31, possibleCode: 'UFTS0001' },
-        { name: 'Nori Half Size', qty: 1, possibleCode: 'UV000008' },
-        { name: 'Sushi Box', qty: 1, possibleCode: 'UFHS0001' },
-        { name: 'GINGER(5G)', qty: 5, possibleCode: 'UV000007' },
-        { name: 'Soy Sauce', qty: 5, possibleCode: 'UE000013' },
-        { name: 'Fine Sugar', qty: 9, possibleCode: 'UE000023' },
-        { name: 'Vinegar', qty: 9, possibleCode: 'UE000021' },
-        { name: 'Costco Family Pack California Roll', qty: 1, possibleCode: 'UE000031' },
-        { name: 'Poke Bowl label', qty: 1, possibleCode: 'UFLP0001' },
-      ];
+    try {
+      const rawScannedItems = await parsePickList(scanImage);
 
       setCart(prevCart => {
         const newCart = [...prevCart];
 
-        rawScannedItems.forEach(scanned => {
+        rawScannedItems.forEach((scanned: any) => {
           // Extra fuzzy matching
           const product = products.find(p => {
             const pCode = p.productCode.toLowerCase();
             const pName = p.name.toLowerCase();
-            const sName = scanned.name.toLowerCase();
-            const sCode = scanned.possibleCode.toLowerCase();
+            const sName = (scanned.name || '').toLowerCase();
+            const sCode = (scanned.code || scanned.possibleCode || '').toLowerCase();
 
             return (
               pCode === sCode ||
               pName === sName ||
-              pName.includes(sName.split(' ')[0]) || // Match first word
-              sName.includes(pCode) ||
-              (sName.includes('sflm-2') && pCode === 's004-01-1') ||
-              (sName.includes('sbm-24c') && pCode === 's004-02-1')
+              (sName && pName.includes(sName.split(' ')[0])) || // Match first word
+              (sName && sName.includes(pCode)) ||
+              (sName && sName.includes('sflm-2') && pCode === 'UFTP0002') ||
+              (sName && sName.includes('sbm-24c') && pCode === 'UFTP0001')
             );
           });
 
-          if (product) {
+          if (product && scanned.qty > 0) {
             const existingIdx = newCart.findIndex(c => c.product.productCode === product.productCode);
             if (existingIdx > -1) {
               newCart[existingIdx] = {
@@ -284,17 +274,26 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
         return newCart;
       });
 
-      setIsScanning(false);
       setShowScanModal(false);
       setScanImage(null);
 
       setModalConfig({
         isOpen: true,
         title: 'Smart Scan Result',
-        message: `Successfully processed the image. SFLM-2 and SBM-24C have been identified and added.`,
+        message: `Successfully processed the image. Items have been identified and added to your list.`,
         type: 'success'
       });
-    }, 1800);
+    } catch (error: any) {
+      console.error(error);
+      setModalConfig({
+        isOpen: true,
+        title: 'Scan Error',
+        message: error.message || 'Failed to process the pick list. Please ensure your API key is configured.',
+        type: 'danger'
+      });
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   const handleLoadList = (list: SavedPickList) => {
