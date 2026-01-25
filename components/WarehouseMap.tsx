@@ -1,16 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { InventoryItem, InventoryLocation, STANDARD_RACKS, AREA_CONFIG, Product, generateId, UserRole } from '../types';
+import { InventoryItem, InventoryLocation, STANDARD_RACKS, AREA_CONFIG, Product, generateId } from '../types';
 import { Package, Search, MapPin, Plus, Save, Trash2, X, Lock, ArrowRightLeft, Layers, ChevronRight } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
 
 interface WarehouseMapProps {
     inventory: InventoryItem[];
     products: Product[];
-    userRole: UserRole;
     onInventoryChange: (action: 'ADD' | 'UPDATE' | 'DELETE' | 'MOVE', item: InventoryItem, qtyDiff?: number, moveContext?: any) => void;
 }
 
-const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRole, onInventoryChange }) => {
+const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInventoryChange }) => {
     // Default to first Staging Row
     const [selectedRack, setSelectedRack] = useState<string>('STG');
     const [selectedLocation, setSelectedLocation] = useState<InventoryLocation | null>(null);
@@ -46,8 +45,8 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
         setModalConfig({ isOpen: true, title, message, type, onConfirm });
     };
 
-    // Permissions Check
-    const canEdit = ['ADMIN', 'MANAGER', 'OPERATOR'].includes(userRole);
+    // Permissions - Removed role based access
+    const canEdit = true;
 
     // Current Dimensions based on selected rack
     // Safe lookup, default to STG-01 if missing
@@ -373,11 +372,6 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, userRo
             <div className="w-full md:w-80 bg-slate-900/60 backdrop-blur-md rounded-xl shadow-lg border border-white/10 p-4 flex flex-col">
                 <div className="flex justify-between items-center border-b border-white/10 pb-2 mb-4">
                     <h3 className="text-lg font-semibold text-white font-display uppercase tracking-wider">Bin Details</h3>
-                    {!canEdit && (
-                        <span className="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded-full flex items-center gap-1 border border-white/5">
-                            <Lock className="w-3 h-3" /> View Only
-                        </span>
-                    )}
                 </div>
 
                 {selectedLocation ? (

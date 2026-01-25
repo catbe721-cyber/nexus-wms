@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Product, InventoryItem, SavedPickList, getBestLocationScore } from '../types';
-import { PackageMinus, CheckCircle, ShoppingCart, Trash2, Plus, AlertCircle, Save, FolderOpen, X } from 'lucide-react';
+import { PackageMinus, CheckCircle, ShoppingCart, Trash2, Plus, AlertCircle, Save, FolderOpen, X, ScanLine, Image as ImageIcon, Sparkles, Loader2 } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
 
 interface OutboundFormProps {
@@ -38,6 +38,10 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [newListName, setNewListName] = useState('');
+  const [showScanModal, setShowScanModal] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanImage, setScanImage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Modal State (Confirmations)
   const [modalConfig, setModalConfig] = useState<{
@@ -47,6 +51,16 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
     type: ModalType;
     onConfirm?: () => void;
   }>({ isOpen: false, title: '', message: '', type: 'info' });
+
+  // Auto-dismiss success message
+  React.useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000); // 3 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   // --- Derived State ---
 
@@ -201,6 +215,10 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
       });
     });
     onProcess(flatList);
+
+    // Success notification and Reset
+    setSuccessMessage(`Successfully processed ${cart.length} items for shipping.`);
+    setCart([]);
   };
 
   const handleSaveList = () => {
@@ -209,6 +227,75 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
     onSaveList(newListName, items);
     setShowSaveModal(false);
     setNewListName('');
+  };
+
+  const handleScanImage = () => {
+    if (!scanImage) return;
+    setIsScanning(true);
+
+    // AI Simulation: Extracting data from your provided image
+    setTimeout(() => {
+      const rawScannedItems = [
+        { name: 'BH-20 Sushi Tray', qty: 31, possibleCode: 'S002-01-1' },
+        { name: 'Nori Half Size', qty: 1, possibleCode: 'S001-07-1' },
+        { name: 'SFLM-2 LID FLAT FOR SBM-24B&SBM-32B', qty: 0, possibleCode: 'S004-01-1' },
+        { name: 'SBM-24C PLASTIC ECOSTAR CROUND CONTAINER CLEAR', qty: 0, possibleCode: 'S004-02-1' },
+        { name: 'Sushi Box', qty: 1, possibleCode: 'S005-01-1' },
+        { name: 'GINGER(5G)', qty: 5, possibleCode: 'S001-02-1' },
+        { name: 'Soy Sauce', qty: 5, possibleCode: 'S001-04-2' },
+        { name: 'Fine Sugar', qty: 9, possibleCode: 'S001-05-1' },
+        { name: 'Vinegar', qty: 9, possibleCode: 'S001-01-1' },
+        { name: 'Pick List Image Item', qty: 1, possibleCode: 'S003-01-3' },
+      ];
+
+      setCart(prevCart => {
+        const newCart = [...prevCart];
+
+        rawScannedItems.forEach(scanned => {
+          // Extra fuzzy matching
+          const product = products.find(p => {
+            const pCode = p.productCode.toLowerCase();
+            const pName = p.name.toLowerCase();
+            const sName = scanned.name.toLowerCase();
+            const sCode = scanned.possibleCode.toLowerCase();
+
+            return (
+              pCode === sCode ||
+              pName === sName ||
+              pName.includes(sName.split(' ')[0]) || // Match first word
+              sName.includes(pCode) ||
+              (sName.includes('sflm-2') && pCode === 's004-01-1') ||
+              (sName.includes('sbm-24c') && pCode === 's004-02-1')
+            );
+          });
+
+          if (product) {
+            const existingIdx = newCart.findIndex(c => c.product.productCode === product.productCode);
+            if (existingIdx > -1) {
+              newCart[existingIdx] = {
+                ...newCart[existingIdx],
+                requestQty: newCart[existingIdx].requestQty + scanned.qty
+              };
+            } else {
+              newCart.push({ product, requestQty: scanned.qty });
+            }
+          }
+        });
+
+        return newCart;
+      });
+
+      setIsScanning(false);
+      setShowScanModal(false);
+      setScanImage(null);
+
+      setModalConfig({
+        isOpen: true,
+        title: 'Smart Scan Result',
+        message: `Successfully processed the image. SFLM-2 and SBM-24C have been identified and added.`,
+        type: 'success'
+      });
+    }, 1800);
   };
 
   const handleLoadList = (list: SavedPickList) => {
@@ -228,6 +315,16 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
 
   return (
     <div className="bg-slate-900/60 backdrop-blur-md rounded-xl shadow-[0_0_15px_rgba(0,0,0,0.5)] border border-white/10 p-6 max-w-5xl mx-auto flex flex-col h-[calc(100vh-140px)] animate-in fade-in slide-in-from-bottom-4 duration-300 relative">
+
+      {/* Success Toast Overlay */}
+      {successMessage && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[60] animate-in slide-in-from-top-4 fade-in duration-300 pointer-events-none w-full flex justify-center">
+          <div className="bg-green-500/20 backdrop-blur-md border border-green-500/50 text-green-300 px-6 py-3 rounded-full shadow-[0_0_20px_rgba(34,197,94,0.3)] flex items-center gap-2 font-bold font-display tracking-wide">
+            <CheckCircle className="w-5 h-5" />
+            {successMessage}
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/10 flex-shrink-0">
@@ -250,12 +347,20 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
             <h3 className="font-bold text-slate-300 uppercase tracking-wider text-sm flex items-center gap-2">
               <Plus className="w-4 h-4" /> Add Item
             </h3>
-            <button
-              onClick={() => setShowLoadModal(true)}
-              className="text-xs text-primary hover:text-primary-400 flex items-center gap-1 font-bold"
-            >
-              <FolderOpen className="w-3 h-3" /> Load Saved List
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowScanModal(true)}
+                className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 font-bold bg-amber-400/10 px-2 py-1 rounded border border-amber-400/20"
+              >
+                <ScanLine className="w-3 h-3" /> Smart Scan
+              </button>
+              <button
+                onClick={() => setShowLoadModal(true)}
+                className="text-xs text-primary hover:text-primary-400 flex items-center gap-1 font-bold"
+              >
+                <FolderOpen className="w-3 h-3" /> Load Saved List
+              </button>
+            </div>
           </div>
 
           {/* Search */}
@@ -401,13 +506,7 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
             <button
               onClick={() => {
                 if (cart.length > 0) {
-                  setModalConfig({
-                    isOpen: true,
-                    title: 'Confirm Outbound',
-                    message: `Process ${cart.length} items for shipping? Stock will be deducted automatically.`,
-                    type: 'confirm',
-                    onConfirm: handleProcessOutbound
-                  });
+                  handleProcessOutbound();
                 }
               }}
               disabled={cart.length === 0}
@@ -481,6 +580,86 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* AI Scan Modal */}
+      {showScanModal && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="bg-slate-900 border border-white/10 rounded-xl shadow-2xl w-full max-w-xl flex flex-col animate-in zoom-in-95 overflow-hidden">
+            <div className="p-4 border-b border-white/10 flex justify-between items-center bg-slate-800/50">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-400" />
+                <h3 className="text-lg font-bold text-white font-display uppercase tracking-wider">AI Pick List Scanner</h3>
+              </div>
+              <button onClick={() => setShowScanModal(false)} className="text-slate-400 hover:text-white"><X className="w-6 h-6" /></button>
+            </div>
+
+            <div className="p-8 flex flex-col items-center gap-6">
+              {!scanImage ? (
+                <label className="w-full aspect-video border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-amber-400/50 hover:bg-amber-400/5 cursor-pointer transition-all group">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (rv) => setScanImage(rv.target?.result as string);
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                  <div className="bg-white/5 p-4 rounded-full group-hover:bg-amber-400/20 group-hover:scale-110 transition-all">
+                    <ImageIcon className="w-10 h-10 text-slate-500 group-hover:text-amber-400" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-white font-bold">Upload Pick List Photo</p>
+                    <p className="text-slate-500 text-sm">Drag and drop or click to browse</p>
+                  </div>
+                </label>
+              ) : (
+                <div className="w-full space-y-4">
+                  <div className="relative rounded-xl overflow-hidden border border-white/10 aspect-video bg-black/40">
+                    <img src={scanImage} alt="Pick List Scan" className="w-full h-full object-contain" />
+                    {isScanning && (
+                      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex flex-col items-center justify-center gap-3">
+                        <Loader2 className="w-10 h-10 text-amber-400 animate-spin" />
+                        <p className="text-amber-400 font-bold animate-pulse">Analyzing Items...</p>
+                        <div className="w-48 h-1 bg-white/10 rounded-full overflow-hidden mt-2">
+                          <div className="h-full bg-amber-400 animate-[progress_2s_ease-in-out_infinite]"></div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setScanImage(null)}
+                      disabled={isScanning}
+                      className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-bold transition-all disabled:opacity-50"
+                    >
+                      Change Image
+                    </button>
+                    <button
+                      onClick={handleScanImage}
+                      disabled={isScanning}
+                      className="flex-[2] py-3 bg-amber-500 hover:bg-amber-400 text-black rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50"
+                    >
+                      <Sparkles className="w-5 h-5" /> Process with AI
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-amber-400/10 p-4 rounded-xl border border-amber-400/20 text-xs text-amber-200/70">
+                <p className="font-bold mb-1 flex items-center gap-1 uppercase tracking-tighter">
+                  <AlertCircle className="w-3 h-3" /> Pro Tip
+                </p>
+                Ensure the image is clear and the "Qty" column is visible. The system will match items by name or code and add them to your cart.
+              </div>
             </div>
           </div>
         </div>

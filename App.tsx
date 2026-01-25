@@ -25,7 +25,7 @@ import {
   ArrowRightLeft
 } from 'lucide-react';
 
-import { Product, InventoryItem, ViewState, InventoryLocation, Transaction, MasterLocation, AREA_CONFIG, generateId, UserRole, ROLES, SavedPickList } from './types';
+import { Product, InventoryItem, ViewState, InventoryLocation, Transaction, MasterLocation, AREA_CONFIG, generateId, SavedPickList } from './types';
 import InventoryForm from './components/InventoryForm';
 import OutboundForm from './components/OutboundForm';
 import WarehouseMap from './components/WarehouseMap';
@@ -65,9 +65,7 @@ const DEFAULT_GAS_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL || '';
 function App() {
   const [view, setView] = useState<ViewState>('dashboard');
 
-  // -- Auth/User State (Simulated) --
-  const [currentUser, setCurrentUser] = useState<{ name: string, role: UserRole }>({ name: 'Admin User', role: 'ADMIN' });
-  const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
+
 
   // -- Modal State --
   const [modalConfig, setModalConfig] = useState<{
@@ -236,41 +234,30 @@ function App() {
     qty: number,
     locationOverride?: string
   ) => {
+    // Resolve the latest data from Product Master to ensure history matches current catalog
+    const masterProduct = products.find(p => p.productCode === item.productCode);
+    const resolvedName = masterProduct ? masterProduct.name : item.productName;
+    const resolvedUnit = masterProduct?.defaultUnit || item.unit;
+    const resolvedCategory = masterProduct?.defaultCategory || item.category;
+
     const newTx: Transaction = {
       id: generateId(),
       date: Date.now(),
       type,
       productCode: item.productCode,
-      productName: item.productName,
-      category: item.category,
+      productName: resolvedName,
+      category: resolvedCategory,
       quantity: qty,
-      unit: item.unit,
+      unit: resolvedUnit,
       locationInfo: locationOverride || item.locations.map(l => `${l.rack}-${l.bay}`).join(', '),
-      notes: locationOverride ? 'Manual Adjustment via Map' : 'System Entry',
-      user: currentUser.name
+      notes: locationOverride ? 'Manual Adjustment via Map' : 'System Entry'
     };
     setTransactions(prev => [newTx, ...prev]);
   };
 
   // Priority logic moved to types.ts (getBestLocationScore)
 
-  // -- Permissions Logic --
-  const PERMISSIONS: Record<UserRole, ViewState[]> = {
-    ADMIN: ['dashboard', 'entry', 'outbound', 'list', 'map', 'history', 'products', 'move'],
-    MANAGER: ['dashboard', 'entry', 'outbound', 'list', 'map', 'history', 'products', 'move'],
-    OPERATOR: ['dashboard', 'entry', 'outbound', 'list', 'map', 'move'],
-    AUDITOR: ['dashboard', 'list', 'map', 'history'],
-    LOGISTICS: ['dashboard', 'list', 'map']
-  };
 
-  const hasAccess = (v: ViewState) => PERMISSIONS[currentUser.role].includes(v);
-
-  // Effect to redirect if user switches role and loses access to current view
-  useEffect(() => {
-    if (!hasAccess(view)) {
-      setView('dashboard');
-    }
-  }, [currentUser.role]);
 
 
   // -- Handlers --
@@ -320,38 +307,56 @@ function App() {
   };
 
   const handleOutboundProcess = (itemsToRemove: { id: string, qty: number }[]) => {
-    setInventory(prevInventory => {
-      let newInventory = [...prevInventory];
+    const newTransactions: Transaction[] = [];
+    const currentInventory = [...inventory];
+    const updatedInventory = [...inventory];
 
-      itemsToRemove.forEach(request => {
-        const index = newInventory.findIndex(x => x.id === request.id);
-        if (index === -1) return;
+    itemsToRemove.forEach(request => {
+      const idx = updatedInventory.findIndex(x => x.id === request.id);
+      if (idx === -1) return;
 
-        const item = newInventory[index];
-        const qtyToRemove = request.qty;
+      const item = updatedInventory[idx];
+      const qtyToRemove = request.qty;
+      if (qtyToRemove <= 0) return;
 
-        if (qtyToRemove <= 0) return;
+      // Prepare Transaction Data
+      const masterProduct = products.find(p => p.productCode === item.productCode);
+      const resolvedName = masterProduct ? masterProduct.name : item.productName;
+      const resolvedUnit = masterProduct?.defaultUnit || item.unit;
+      const resolvedCategory = masterProduct?.defaultCategory || item.category;
 
-        if (item.quantity <= qtyToRemove) {
-          // Remove fully
-          logTransaction('OUTBOUND', item, -item.quantity);
-          newInventory.splice(index, 1);
-        } else {
-          // Partial removal
-          logTransaction('OUTBOUND', item, -qtyToRemove);
-          newInventory[index] = {
-            ...item,
-            quantity: item.quantity - qtyToRemove,
-            updatedAt: Date.now()
-          };
-        }
-      });
+      const tx: Transaction = {
+        id: generateId(),
+        date: Date.now(),
+        type: 'OUTBOUND',
+        productCode: item.productCode,
+        productName: resolvedName,
+        category: resolvedCategory,
+        quantity: -qtyToRemove,
+        unit: resolvedUnit,
+        locationInfo: item.locations.map(l => `${l.rack}-${l.bay}`).join(', '),
+        notes: 'System Entry'
+      };
+      newTransactions.push(tx);
 
-      return newInventory;
+      // Update Inventory
+      if (item.quantity <= qtyToRemove) {
+        updatedInventory.splice(idx, 1);
+      } else {
+        updatedInventory[idx] = {
+          ...item,
+          quantity: item.quantity - qtyToRemove,
+          updatedAt: Date.now()
+        };
+      }
     });
 
-    setView('list');
-    showAlert('Success', 'Processed outbound items successfully.');
+    // Apply both updates at once
+    setInventory(updatedInventory);
+    setTransactions(prev => [...newTransactions, ...prev]);
+
+    // Removal of redirection requested by user: setView('list');
+    // showAlert('Success', 'Processed outbound items successfully.'); // Success message moved to component
   };
 
   const handleMapInventoryChange = (action: 'ADD' | 'UPDATE' | 'DELETE' | 'MOVE', item: InventoryItem, qtyDiff?: number, moveContext?: any) => {
@@ -486,10 +491,7 @@ function App() {
     logTransaction('ADJUSTMENT', sourceItem, 0, `Moved ${qty} ${sourceItem.unit} from ${sourceLocString} to ${destLocString}`);
   };
 
-  const switchRole = (role: UserRole) => {
-    setCurrentUser({ name: `${ROLES[role].label} User`, role });
-    setShowRoleSwitcher(false);
-  };
+
 
   // Aggregation Logic for Dashboard
   const inventorySummary = useMemo(() => {
@@ -551,7 +553,6 @@ function App() {
   }, [inventory]);
 
   const SidebarItem = ({ id, icon: Icon, label, alert }: { id: ViewState, icon: any, label: string, alert?: boolean }) => {
-    if (!hasAccess(id)) return null;
 
     return (
       <button
@@ -603,69 +604,27 @@ function App() {
 
           <nav className="flex-1 space-y-1 overflow-y-auto">
             {/* Operational Section */}
-            {(hasAccess('dashboard') || hasAccess('entry') || hasAccess('outbound')) && (
-              <>
-                <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Operations</p>
-                <SidebarItem id="dashboard" icon={LayoutDashboard} label="Dashboard" alert={lowStockItems.length > 0} />
-                <SidebarItem id="entry" icon={PackagePlus} label="Inbound" />
-                <SidebarItem id="outbound" icon={PackageMinus} label="Outbound" />
-                <SidebarItem id="move" icon={ArrowRightLeft} label="Move Stock" />
-                <div className="my-6"></div>
-              </>
-            )}
+            <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Operations</p>
+            <SidebarItem id="dashboard" icon={LayoutDashboard} label="Dashboard" alert={lowStockItems.length > 0} />
+            <SidebarItem id="entry" icon={PackagePlus} label="Inbound" />
+            <SidebarItem id="outbound" icon={PackageMinus} label="Outbound" />
+            <SidebarItem id="move" icon={ArrowRightLeft} label="Move Stock" />
+            <div className="my-6"></div>
 
             {/* Inventory Section */}
-            {(hasAccess('list') || hasAccess('map') || hasAccess('history')) && (
-              <>
-                <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Inventory</p>
-                <SidebarItem id="list" icon={FileText} label="Stock List" />
-                <SidebarItem id="map" icon={Map} label="Visual Map" />
-                <SidebarItem id="history" icon={ClipboardList} label="History" />
-                <div className="my-6"></div>
-              </>
-            )}
+            <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Inventory</p>
+            <SidebarItem id="list" icon={FileText} label="Stock List" />
+            <SidebarItem id="map" icon={Map} label="Visual Map" />
+            <SidebarItem id="history" icon={ClipboardList} label="History" />
+            <div className="my-6"></div>
 
             {/* Master Data Section */}
-            {(hasAccess('products')) && (
-              <>
-                <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Master Data</p>
-                <SidebarItem id="products" icon={Boxes} label="Products" />
-                <div className="my-4 border-t border-slate-100"></div>
-              </>
-            )}
+            <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Master Data</p>
+            <SidebarItem id="products" icon={Boxes} label="Products" />
+            <div className="my-4 border-t border-slate-100"></div>
           </nav>
 
-          <div className="mt-auto pt-4 border-t border-slate-100 relative">
-            {showRoleSwitcher && (
-              <div className="absolute bottom-full left-0 w-full bg-slate-800 border border-slate-700 shadow-2xl rounded-lg mb-2 p-1 z-50 animate-in fade-in slide-in-from-bottom-2">
-                <p className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Switch Role</p>
-                {(Object.keys(ROLES) as UserRole[]).map(role => (
-                  <button
-                    key={role}
-                    onClick={() => switchRole(role)}
-                    className={`w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between ${currentUser.role === role ? 'bg-primary/10 text-primary font-bold border border-primary/20' : 'hover:bg-slate-700/50 text-slate-400'}`}
-                  >
-                    <span>{ROLES[role].label}</span>
-                    {currentUser.role === role && <span className="w-2 h-2 rounded-full bg-primary"></span>}
-                  </button>
-                ))}
-              </div>
-            )}
 
-            <button
-              onClick={() => setShowRoleSwitcher(!showRoleSwitcher)}
-              className="flex items-center gap-3 px-2 w-full hover:bg-white/5 p-2 rounded-lg transition-colors group"
-            >
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border ${currentUser.role === 'ADMIN' ? 'bg-primary text-white border-primary' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
-                {currentUser.role[0]}
-              </div>
-              <div className="text-left flex-1">
-                <p className="text-sm font-bold text-slate-200 group-hover:text-primary transition-colors font-display tracking-wide">{ROLES[currentUser.role].label}</p>
-                <p className="text-[10px] text-slate-500 uppercase tracking-wide">Change Role</p>
-              </div>
-              <ChevronUp className={`w-4 h-4 text-slate-500 transition-transform ${showRoleSwitcher ? 'rotate-180' : ''}`} />
-            </button>
-          </div>
         </div>
       </div>
 
@@ -688,9 +647,6 @@ function App() {
             <div className="space-y-6 animate-in fade-in duration-500">
               <div className="flex justify-between items-end">
                 <h2 className="text-3xl font-bold text-white font-display tracking-tight">Command Center</h2>
-                <span className="text-sm text-slate-400 bg-white/5 px-3 py-1 rounded-full border border-white/10 backdrop-blur-sm">
-                  User: <span className="font-bold text-primary">{ROLES[currentUser.role].label}</span>
-                </span>
               </div>
 
               {/* Alerts Section */}
@@ -810,7 +766,7 @@ function App() {
           )}
 
           {/* Entry View */}
-          {view === 'entry' && hasAccess('entry') && (
+          {view === 'entry' && (
             <InventoryForm
               products={products}
               masterLocations={masterLocations}
@@ -824,7 +780,7 @@ function App() {
           )}
 
           {/* Outbound View */}
-          {view === 'outbound' && hasAccess('outbound') && (
+          {view === 'outbound' && (
             <OutboundForm
               products={products}
               inventory={inventory}
@@ -845,33 +801,73 @@ function App() {
           )}
 
           {/* Inventory List View (Summary) */}
-          {view === 'list' && hasAccess('list') && (
+          {view === 'list' && (
             <InventoryList inventory={inventory} products={products} />
           )}
 
           {/* Item Entries History */}
-          {view === 'history' && hasAccess('history') && (
+          {view === 'history' && (
             <ItemEntriesPage transactions={transactions} />
           )}
 
           {/* Map View */}
-          {view === 'map' && hasAccess('map') && (
+          {view === 'map' && (
             <WarehouseMap
               inventory={inventory}
               products={products}
-              userRole={currentUser.role}
               onInventoryChange={handleMapInventoryChange}
             />
           )}
 
           {/* Product Master View */}
-          {view === 'products' && hasAccess('products') && (
+          {view === 'products' && (
             <ProductPage
               products={products}
               onUpdateProducts={(newProducts) => {
-                // Simplified update to avoid crashes with ID mismatches. 
-                // TODO: Re-implement cascading rename if needed using a diff strategy.
+                // 1. Update Product Master
                 setProducts(newProducts);
+
+                // 2. Deep Cascade Changes to Inventory (Matches denormalized fields)
+                setInventory(prevInv => prevInv.map(item => {
+                  const masterMatch = newProducts.find(p => p.productCode === item.productCode);
+                  if (masterMatch) {
+                    const hasDetailChange =
+                      masterMatch.name !== item.productName ||
+                      masterMatch.defaultUnit !== item.unit ||
+                      masterMatch.defaultCategory !== item.category;
+
+                    if (hasDetailChange) {
+                      return {
+                        ...item,
+                        productName: masterMatch.name,
+                        unit: masterMatch.defaultUnit || item.unit,
+                        category: masterMatch.defaultCategory || item.category
+                      };
+                    }
+                  }
+                  return item;
+                }));
+
+                // 3. Deep Cascade Changes to Transactions
+                setTransactions(prevTx => prevTx.map(tx => {
+                  const masterMatch = newProducts.find(p => p.productCode === tx.productCode);
+                  if (masterMatch) {
+                    const hasDetailChange =
+                      masterMatch.name !== tx.productName ||
+                      masterMatch.defaultUnit !== tx.unit ||
+                      masterMatch.defaultCategory !== tx.category;
+
+                    if (hasDetailChange) {
+                      return {
+                        ...tx,
+                        productName: masterMatch.name,
+                        unit: masterMatch.defaultUnit || tx.unit,
+                        category: masterMatch.defaultCategory || tx.category
+                      };
+                    }
+                  }
+                  return tx;
+                }));
               }}
             />
           )}

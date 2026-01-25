@@ -1,16 +1,4 @@
-
-
 export const DEFAULT_ITEM_CATEGORIES = ['RTE', 'RAW', 'FG', 'WIP', 'PKG', 'OTH'];
-
-export type UserRole = 'ADMIN' | 'MANAGER' | 'OPERATOR' | 'AUDITOR' | 'LOGISTICS';
-
-export const ROLES: Record<UserRole, { label: string, description: string }> = {
-  ADMIN: { label: 'System Admin', description: 'Full System Access' },
-  MANAGER: { label: 'Warehouse Mgr', description: 'Operations Lead' },
-  OPERATOR: { label: 'Floor Operator', description: 'Inbound/Outbound' },
-  AUDITOR: { label: 'Inventory Auditor', description: 'Read-Only / QC' },
-  LOGISTICS: { label: 'Logistics Partner', description: 'View Only' }
-};
 
 export interface Product {
   productCode: string; // Formerly id & code
