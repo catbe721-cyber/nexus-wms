@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Trash2, Calendar, FileText, Check, Settings, Loader2, Image as ImageIcon, Search, AlertCircle, X, PackageMinus, Plus } from 'lucide-react';
 import { InventoryItem, Product } from '../types';
 import { smartSearch } from '../utils';
+import { PICKING_RULES } from '../config/pickingConfig';
 
 const CONFIG = {
     API_MODEL: "gemini-2.5-flash-preview-09-2025",
@@ -90,9 +91,9 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
 
     const categorizeItem = (i: PickItem) => {
         const n = i.item.toLowerCase();
-        if (n.includes("sugar") || n.includes("vinegar") || n.includes("peach") || n.includes("糖") || n.includes("醋") || n.includes("桃")) return 'P1';
-        if (["BH-20", "BX-20", "Sushi Tray"].some(k => i.item.toUpperCase().includes(k))) return 'P2';
-        if (i.uom === "PLT") return 'P3';
+        if (PICKING_RULES.P1_KEYWORDS.some(k => n.includes(k.toLowerCase()))) return 'P1';
+        if (PICKING_RULES.P2_KEYWORDS.some(k => n.includes(k.toLowerCase()))) return 'P2';
+        if (PICKING_RULES.P3_UOMS.includes(i.uom as any)) return 'P3';
         return 'Misc';
     };
 
@@ -408,22 +409,142 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
                             )}
                         </div>
                     </div>
+
+                    {/* Upload Section (Moved to Sidebar) */}
+                    <div className={`bg-gradient-to-br from-violet-600/20 to-violet-900/20 p-5 rounded-xl border border-violet-500/20 backdrop-blur-md relative overflow-hidden`}>
+                        <div className="absolute inset-0 bg-violet-600/5 z-0 pointer-events-none"></div>
+                        <h2 className="text-xs font-bold text-violet-300 uppercase tracking-widest mb-4 flex items-center gap-2 relative z-10">
+                            <Upload className="w-4 h-4" /> New Manifest
+                        </h2>
+
+                        <input
+                            type="file"
+                            id="smart-pick-upload"
+                            accept="image/*"
+                            ref={fileInputRef}
+                            className="hidden"
+                            onChange={handleFileSelect}
+                        />
+
+                        {!previewImg ? (
+                            <label
+                                htmlFor="smart-pick-upload"
+                                className="block w-full border-2 border-dashed border-violet-500/30 rounded-xl p-8 text-center cursor-pointer hover:bg-violet-500/10 transition-colors mb-4 relative z-10 group"
+                            >
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className="bg-violet-500/20 p-3 rounded-full group-hover:scale-110 transition-transform">
+                                        <ImageIcon className="w-6 h-6 text-violet-300" />
+                                    </div>
+                                    <span className="text-xs font-bold text-violet-200">Tap to Upload</span>
+                                </div>
+                            </label>
+                        ) : (
+                            <div className="mb-4 relative z-10 group">
+                                <img src={previewImg} className="w-full max-h-48 object-cover rounded-lg shadow-lg border border-white/10" alt="Preview" />
+                                <button
+                                    onClick={() => { setPreviewImg(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                                    className="absolute top-2 right-2 bg-black/60 text-white p-1 rounded-full hover:bg-red-500 transition-colors"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
+
+                        <button
+                            onClick={processImage}
+                            disabled={!previewImg || loading}
+                            className={`w-full py-3 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-xl shadow-lg shadow-violet-900/20 transition-all flex justify-center items-center gap-2 relative z-10 ${loading ? 'opacity-70 cursor-wait' : 'active:scale-95'}`}
+                        >
+                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Analyze with AI'}
+                        </button>
+                    </div>
+
+                    {/* Manual Entry Section (Moved to Sidebar) */}
+                    {currentManifest && (
+                        <div className="bg-slate-800/40 p-5 rounded-xl border border-white/5 backdrop-blur-md">
+                            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <Plus className="w-4 h-4" /> Add Item Manually
+                            </h2>
+                            <div className="space-y-3">
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none placeholder-slate-600 text-sm"
+                                        placeholder="Search Product..."
+                                        value={manualItemName}
+                                        onChange={(e) => {
+                                            setManualItemName(e.target.value);
+                                            setShowManualDropdown(true);
+                                        }}
+                                        onFocus={() => setShowManualDropdown(true)}
+                                    />
+
+                                    {/* Search Dropdown */}
+                                    {showManualDropdown && manualItemName.trim() && manualFilteredProducts.length > 0 && (
+                                        <div className="absolute z-50 w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
+                                            {manualFilteredProducts.map(p => (
+                                                <div
+                                                    key={p.productCode}
+                                                    onClick={() => {
+                                                        setManualItemName(p.name);
+                                                        setShowManualDropdown(false);
+                                                    }}
+                                                    className="px-4 py-2 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0"
+                                                >
+                                                    <div className="flex justify-between items-start">
+                                                        <span className="font-bold text-slate-200 text-sm">{p.name}</span>
+                                                        {p.defaultUnit && <span className="text-[10px] text-slate-400 font-bold bg-white/5 px-1.5 py-0.5 rounded ml-2 whitespace-nowrap">{p.defaultUnit}</span>}
+                                                    </div>
+                                                    <span className="text-xs text-slate-500 block mt-0.5">{p.productCode}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <input
+                                        type="number"
+                                        className="w-20 bg-slate-900 border border-white/10 rounded-lg p-3 text-slate-200 focus:ring-2 focus:ring-violet-500 outline-none text-sm font-bold text-center"
+                                        value={manualItemQty}
+                                        onChange={(e) => setManualItemQty(parseFloat(e.target.value) || 0)}
+                                        min={1}
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            if (manualItemName.trim()) {
+                                                const match = products.find(p => p.name.toLowerCase() === manualItemName.toLowerCase());
+                                                const uom = match ? match.defaultUnit : 'ea';
+
+                                                handleAddItem(manualItemName, manualItemQty, uom);
+                                                setManualItemName('');
+                                                setManualItemQty(1);
+                                                setShowManualDropdown(false);
+                                            }
+                                        }}
+                                        disabled={!manualItemName.trim() || !currentDateId}
+                                        className="flex-1 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg text-sm transition-colors"
+                                    >
+                                        Add Item
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </aside>
 
                 {/* Main Content */}
                 <main className="lg:col-span-9">
+
                     {currentManifest && (
                         <div className="space-y-6">
                             {/* Sort Misc items to match requested order */}
                             {(() => {
-                                const miscOrder = ["soy sauce", "ginger", "wasabi", "nori half", "nori full", "label", "labe", "sflm-2", "sbm-24c"];
                                 const sortedMisc = [...(currentManifest.processedResults.MiscellaneousItems || [])].sort((a, b) => {
                                     const getRank = (item: PickItem) => {
                                         const name = item.item.toLowerCase();
-                                        for (let i = 0; i < miscOrder.length; i++) {
-                                            if (name.includes(miscOrder[i])) return i;
-                                        }
-                                        return 999;
+                                        const idx = PICKING_RULES.MISC_ORDER.findIndex(k => name.includes(k));
+                                        return idx === -1 ? 999 : idx;
                                     };
                                     return getRank(a) - getRank(b);
                                 });
@@ -463,150 +584,24 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
                         </div>
                     )}
 
-                    {/* ACTIONS SECTION (Below the list) */}
-                    <div className="mt-8 pt-8 border-t border-white/10">
-                        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-6">Actions & References</h3>
 
-                        <div className={`grid grid-cols-1 ${currentManifest ? 'md:grid-cols-2' : ''} gap-6 mb-6`}>
-                            {/* Upload Section */}
-                            <div className={`bg-gradient-to-br from-violet-600/20 to-violet-900/20 p-5 rounded-xl border border-violet-500/20 backdrop-blur-md relative overflow-hidden ${!currentManifest ? 'max-w-xl mx-auto w-full' : ''}`}>
-                                <div className="absolute inset-0 bg-violet-600/5 z-0 pointer-events-none"></div>
-                                <h2 className="text-xs font-bold text-violet-300 uppercase tracking-widest mb-4 flex items-center gap-2 relative z-10">
-                                    <Upload className="w-4 h-4" /> New Manifest
-                                </h2>
 
-                                <input
-                                    type="file"
-                                    id="smart-pick-upload"
-                                    accept="image/*"
-                                    ref={fileInputRef}
-                                    className="hidden"
-                                    onChange={handleFileSelect}
+                    {/* Original Image Section (Moved to Bottom) */}
+                    {currentManifest?.originalImage && (
+                        <div className="bg-slate-800/40 p-4 rounded-xl border border-white/5 overflow-hidden mt-8">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                <ImageIcon className="w-4 h-4" /> Original Image <span className="text-[10px] text-slate-500 ml-2">(Click to Enlarge)</span>
+                            </h3>
+                            <div className="bg-black/20 rounded-lg border border-white/5 p-2 cursor-zoom-in hover:border-violet-500/30 transition-colors" onClick={() => setExpandedImage(currentManifest.originalImage || null)}>
+                                <img
+                                    src={currentManifest.originalImage}
+                                    alt="Original Manifest"
+                                    className="w-full object-contain rounded shadow-lg max-h-[600px]"
                                 />
-
-                                {!previewImg ? (
-                                    <label
-                                        htmlFor="smart-pick-upload"
-                                        className="block w-full border-2 border-dashed border-violet-500/30 rounded-xl p-8 text-center cursor-pointer hover:bg-violet-500/10 transition-colors mb-4 relative z-10 group"
-                                    >
-                                        <div className="flex flex-col items-center gap-2">
-                                            <div className="bg-violet-500/20 p-3 rounded-full group-hover:scale-110 transition-transform">
-                                                <ImageIcon className="w-6 h-6 text-violet-300" />
-                                            </div>
-                                            <span className="text-xs font-bold text-violet-200">Tap to Upload Image</span>
-                                        </div>
-                                    </label>
-                                ) : (
-                                    <div className="mb-4 relative z-10 group">
-                                        <img src={previewImg} className="w-full max-h-48 object-cover rounded-lg shadow-lg border border-white/10" alt="Preview" />
-                                        <button
-                                            onClick={() => { setPreviewImg(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
-                                            className="absolute top-2 right-2 bg-black/60 text-white p-1 rounded-full hover:bg-red-500 transition-colors"
-                                        >
-                                            <X className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                )}
-
-                                <button
-                                    onClick={processImage}
-                                    disabled={!previewImg || loading}
-                                    className={`w-full py-3 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-xl shadow-lg shadow-violet-900/20 transition-all flex justify-center items-center gap-2 relative z-10 ${loading ? 'opacity-70 cursor-wait' : 'active:scale-95'}`}
-                                >
-                                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Analyze with AI'}
-                                </button>
                             </div>
-
-                            {/* Manual Entry Section - CONDITIONAL */}
-                            {currentManifest && (
-                                <div className="bg-slate-800/40 p-5 rounded-xl border border-white/5 backdrop-blur-md">
-                                    <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                        <Plus className="w-4 h-4" /> Add Item Manually
-                                    </h2>
-                                    <div className="space-y-3">
-                                        <div className="relative">
-                                            <input
-                                                type="text"
-                                                className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none placeholder-slate-600 text-sm"
-                                                placeholder="Search Product..."
-                                                value={manualItemName}
-                                                onChange={(e) => {
-                                                    setManualItemName(e.target.value);
-                                                    setShowManualDropdown(true);
-                                                }}
-                                                onFocus={() => setShowManualDropdown(true)}
-                                            />
-
-                                            {/* Search Dropdown */}
-                                            {showManualDropdown && manualItemName.trim() && manualFilteredProducts.length > 0 && (
-                                                <div className="absolute z-50 w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
-                                                    {manualFilteredProducts.map(p => (
-                                                        <div
-                                                            key={p.productCode}
-                                                            onClick={() => {
-                                                                setManualItemName(p.name);
-                                                                setShowManualDropdown(false);
-                                                            }}
-                                                            className="px-4 py-2 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0"
-                                                        >
-                                                            <div className="flex justify-between items-start">
-                                                                <span className="font-bold text-slate-200 text-sm">{p.name}</span>
-                                                                {p.defaultUnit && <span className="text-[10px] text-slate-400 font-bold bg-white/5 px-1.5 py-0.5 rounded ml-2 whitespace-nowrap">{p.defaultUnit}</span>}
-                                                            </div>
-                                                            <span className="text-xs text-slate-500 block mt-0.5">{p.productCode}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="number"
-                                                className="w-20 bg-slate-900 border border-white/10 rounded-lg p-3 text-slate-200 focus:ring-2 focus:ring-violet-500 outline-none text-sm font-bold text-center"
-                                                value={manualItemQty}
-                                                onChange={(e) => setManualItemQty(parseFloat(e.target.value) || 0)}
-                                                min={1}
-                                            />
-                                            <button
-                                                onClick={() => {
-                                                    if (manualItemName.trim()) {
-                                                        const match = products.find(p => p.name.toLowerCase() === manualItemName.toLowerCase());
-                                                        const uom = match ? match.defaultUnit : 'ea';
-
-                                                        handleAddItem(manualItemName, manualItemQty, uom);
-                                                        setManualItemName('');
-                                                        setManualItemQty(1);
-                                                        setShowManualDropdown(false);
-                                                    }
-                                                }}
-                                                disabled={!manualItemName.trim() || !currentDateId}
-                                                className="flex-1 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg text-sm transition-colors"
-                                            >
-                                                Add Item
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
                         </div>
+                    )}
 
-                        {/* Original Image Section */}
-                        {currentManifest?.originalImage && (
-                            <div className="bg-slate-800/40 p-4 rounded-xl border border-white/5 overflow-hidden">
-                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                    <ImageIcon className="w-4 h-4" /> Original Image <span className="text-[10px] text-slate-500 ml-2">(Click to Enlarge)</span>
-                                </h3>
-                                <div className="bg-black/20 rounded-lg border border-white/5 p-2 cursor-zoom-in hover:border-violet-500/30 transition-colors" onClick={() => setExpandedImage(currentManifest.originalImage || null)}>
-                                    <img
-                                        src={currentManifest.originalImage}
-                                        alt="Original Manifest"
-                                        className="w-full object-contain rounded shadow-lg max-h-[600px]"
-                                    />
-                                </div>
-                            </div>
-                        )}
-                    </div>
                 </main>
             </div>
 

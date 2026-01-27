@@ -1,4 +1,4 @@
-export const DEFAULT_ITEM_CATEGORIES = ['RTE', 'RAW', 'FG', 'WIP', 'PKG', 'OTH'];
+export const DEFAULT_ITEM_CATEGORIES = ['RTE', 'RAW', 'FG', 'WIP', 'PKG', 'OTH'] as const;
 
 export interface Product {
   productCode: string; // Formerly id & code
@@ -62,9 +62,9 @@ export interface SavedPickList {
 
 // Legacy fallbacks (needed for AREA_CONFIG)
 export const BAYS_PER_RACK = 12;
-export const LEVELS = ['3', '2', '1', 'Floor'];
+export const LEVELS = ['3', '2', '1', 'Floor'] as const;
 
-export const STANDARD_RACKS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J'];
+export const STANDARD_RACKS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J'] as const;
 
 // Define Area Dimensions
 export const AREA_CONFIG: Record<string, { bays: number, levels: string[] }> = {

@@ -64,6 +64,28 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
     }
   }, [successMessage]);
 
+  const cartItemsWithValidation = useMemo(() => {
+    return cart.map((c, idx) => {
+      const totalStock = inventory
+        .filter(i => i.productCode === c.product.productCode)
+        .reduce((acc, i) => acc + i.quantity, 0);
+
+      const totalRequested = cart
+        .filter(item => item.product.productCode === c.product.productCode)
+        .reduce((acc, item) => acc + item.requestQty, 0);
+
+      return {
+        ...c,
+        originalIdx: idx,
+        totalStock,
+        totalRequested,
+        isOverStock: totalRequested > totalStock
+      };
+    });
+  }, [cart, inventory]);
+
+  const hasValidationErrors = useMemo(() => cartItemsWithValidation.some(c => c.isOverStock), [cartItemsWithValidation]);
+
   // --- Derived State ---
 
   // 1. Calculate Available Stock (Total - InCart)
@@ -455,16 +477,8 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
                 <p>List is empty</p>
               </div>
             ) : (
-              cart.map((c, idx) => {
-                const totalStock = inventory
-                  .filter(i => i.productCode === c.product.productCode)
-                  .reduce((acc, i) => acc + i.quantity, 0);
-
-                const totalRequested = cart
-                  .filter(item => item.product.productCode === c.product.productCode)
-                  .reduce((acc, item) => acc + item.requestQty, 0);
-
-                const isOverStock = totalRequested > totalStock;
+              cartItemsWithValidation.map((c, idx) => {
+                const { totalStock, isOverStock } = c;
 
                 return (
                   <div key={idx} className={`p-3 rounded-lg border flex items-center justify-between group transition-colors relative ${isOverStock ? 'bg-red-500/10 border-red-500/50 hover:bg-red-500/20' : 'bg-slate-800/40 border-white/5 hover:border-primary/30'}`}>
@@ -486,13 +500,13 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
                           value={c.requestQty}
                           onChange={(e) => {
                             const newQty = parseInt(e.target.value) || 0;
-                            setCart(prev => prev.map((item, i) => i === idx ? { ...item, requestQty: newQty } : item));
+                            setCart(prev => prev.map((item, i) => i === c.originalIdx ? { ...item, requestQty: newQty } : item));
                           }}
                           className={`w-20 px-2 py-1 bg-black/40 border rounded text-center font-bold outline-none focus:border-primary ${isOverStock ? 'border-red-500/50 text-red-300' : 'border-white/10 text-white'}`}
                         />
                         <span className="text-xs text-slate-500 font-normal">{c.product.defaultUnit}</span>
                       </div>
-                      <button onClick={() => handleRemoveFromCart(idx)} className="p-2 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded transition-colors">
+                      <button onClick={() => handleRemoveFromCart(c.originalIdx)} className="p-2 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded transition-colors">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -507,29 +521,11 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
             <button onClick={onCancel} className="text-slate-400 hover:text-white font-bold">Cancel</button>
             <button
               onClick={() => {
-                const hasErrors = cart.some(c => {
-                  const totalStock = inventory
-                    .filter(i => i.productCode === c.product.productCode)
-                    .reduce((acc, i) => acc + i.quantity, 0);
-                  const totalRequested = cart
-                    .filter(item => item.product.productCode === c.product.productCode)
-                    .reduce((acc, item) => acc + item.requestQty, 0);
-                  return totalRequested > totalStock;
-                });
-
-                if (cart.length > 0 && !hasErrors) {
+                if (cart.length > 0 && !hasValidationErrors) {
                   handleProcessOutbound();
                 }
               }}
-              disabled={cart.length === 0 || cart.some(c => {
-                const totalStock = inventory
-                  .filter(i => i.productCode === c.product.productCode)
-                  .reduce((acc, i) => acc + i.quantity, 0);
-                const totalRequested = cart
-                  .filter(item => item.product.productCode === c.product.productCode)
-                  .reduce((acc, item) => acc + item.requestQty, 0);
-                return totalRequested > totalStock;
-              })}
+              disabled={cart.length === 0 || hasValidationErrors}
               className="bg-green-500 hover:bg-green-600 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed text-white px-8 py-3 rounded-lg font-bold shadow-lg shadow-green-500/20 flex items-center gap-2 transition-all"
             >
               <CheckCircle className="w-5 h-5" /> Process Outbound

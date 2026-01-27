@@ -54,16 +54,26 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
     const currentBays = currentConfig?.bays || 12;
     const currentLevels = currentConfig?.levels || ['Floor'];
 
+    // Optimization: Create a lookup map for O(1) access
+    const locationLookup = useMemo(() => {
+        const map = new Map<string, InventoryItem[]>();
+        inventory.forEach(item => {
+            item.locations.forEach(loc => {
+                // Normalize keys to handle string/number mismatches
+                const key = `${loc.rack}-${String(loc.bay)}-${String(loc.level)}`;
+                if (!map.has(key)) {
+                    map.set(key, []);
+                }
+                map.get(key)!.push(item);
+            });
+        });
+        return map;
+    }, [inventory]);
+
     // Helper to find items in a specific cell
     const getItemsInCell = (rack: string, bay: number, level: string) => {
-        return inventory.filter(item =>
-            item.locations.some(loc =>
-                loc.rack === rack &&
-                // Loose equality check for bay/level to handle potential string/number mismatches
-                String(loc.bay) === String(bay) &&
-                String(loc.level) === String(level)
-            )
-        );
+        const key = `${rack}-${String(bay)}-${String(level)}`;
+        return locationLookup.get(key) || [];
     };
 
     const selectedCellItems = useMemo(() => {
