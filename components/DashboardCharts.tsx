@@ -25,12 +25,12 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
 
 const DashboardCharts: React.FC<DashboardChartsProps> = ({ inventory, transactions }) => {
 
-    // 1. Stock Distribution Data
+    // 1. Slot Distribution Data (Count of locations/pallets instead of raw qty)
     const categoryData = useMemo(() => {
         const counts: Record<string, number> = {};
         inventory.forEach(item => {
             const cat = item.category || 'OTH';
-            counts[cat] = (counts[cat] || 0) + item.quantity;
+            counts[cat] = (counts[cat] || 0) + item.locations.length;
         });
         return Object.entries(counts)
             .map(([name, value]) => ({ name, value }))
@@ -83,7 +83,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ inventory, transactio
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
             {/* Category Chart */}
             <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 backdrop-blur-md">
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Stock Distribution</h3>
+                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Slot Distribution</h3>
                 <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
