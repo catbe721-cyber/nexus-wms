@@ -78,3 +78,24 @@ export const filterBinCodes = (locations: any[], searchTerm: string) => {
         return variants.some(v => v.includes(searchNoSpaces));
     });
 };
+
+/**
+ * getCategoryColor
+ * 
+ * Centralized color logic for categories to ensure consistency across the app.
+ */
+export const getCategoryColor = (cat: string) => {
+    const upperCat = cat?.toUpperCase() || '';
+
+    // Standard Categories
+    if (upperCat === 'RTE') return 'bg-green-500/20 text-green-400 border border-green-500/30';
+    if (upperCat === 'RAW') return 'bg-red-500/20 text-red-400 border border-red-500/30';
+    if (upperCat === 'FG') return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
+    if (upperCat === 'WIP') return 'bg-amber-500/20 text-amber-400 border border-amber-500/30';
+
+    // Packaging / Materials
+    if (['PKG', 'PIB', 'PBX', 'PFL'].includes(upperCat)) return 'bg-purple-500/20 text-purple-400 border border-purple-500/30';
+
+    // Default
+    return 'bg-slate-800 text-slate-400 border border-white/10';
+};

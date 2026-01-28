@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { InventoryItem, InventoryLocation, STANDARD_RACKS, AREA_CONFIG, Product, generateId } from '../types';
+import { getCategoryColor } from '../utils';
 import { Package, Search, MapPin, Plus, Save, Trash2, X, Lock, ArrowRightLeft, Layers, ChevronRight } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
 
@@ -45,6 +46,16 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
         setModalConfig({ isOpen: true, title, message, type, onConfirm });
     };
 
+    // Reset edit/move state when selection changes
+    React.useEffect(() => {
+        setIsAddingItem(false);
+        setEditingItemId(null);
+        setMovingItemId(null);
+        setNewItemCode('');
+        setNewItemQty(0);
+        setMoveMode('FULL');
+    }, [selectedRack, selectedLocation]);
+
     // Permissions - Removed role based access
     const canEdit = true;
 
@@ -81,15 +92,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
         return getItemsInCell(selectedLocation.rack, selectedLocation.bay, selectedLocation.level);
     }, [selectedLocation, inventory]);
 
-    const getCategoryColor = (cat: string) => {
-        const upperCat = cat.toUpperCase();
-        if (upperCat === 'RTE') return 'bg-green-100 text-green-700';
-        if (upperCat === 'RAW') return 'bg-red-100 text-red-700';
-        if (upperCat === 'FG') return 'bg-blue-100 text-blue-700';
-        if (upperCat === 'WIP') return 'bg-amber-100 text-amber-700';
-        if (['PKG', 'PIB', 'PBX', 'PFL'].includes(upperCat)) return 'bg-purple-100 text-purple-700';
-        return 'bg-gray-100 text-gray-700';
-    };
+
 
     // Actions
     const handleAddItem = () => {
@@ -275,20 +278,24 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                         </h2>
                     </div>
 
-                    {/* Zone Selector Bar */}
+                    {/* Zone Selector Bar - Dynamic */}
                     <div className="flex gap-2 p-1 bg-black/40 rounded-lg overflow-x-auto">
-                        <button
-                            onClick={() => { setSelectedRack('STG'); setSelectedLocation(null); }}
-                            className={`px-4 py-1 text-sm font-bold rounded transition-colors whitespace-nowrap ${selectedRack === 'STG' ? 'bg-amber-500 text-black' : 'bg-slate-800 text-slate-400 hover:text-amber-400'}`}
-                        >
-                            STAGING
-                        </button>
-                        <button
-                            onClick={() => { setSelectedRack('ADJ'); setSelectedLocation(null); }}
-                            className={`px-4 py-1 text-sm font-bold rounded transition-colors whitespace-nowrap ${selectedRack === 'ADJ' ? 'bg-purple-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-purple-400'}`}
-                        >
-                            ADJUSTMENT
-                        </button>
+                        {Object.keys(AREA_CONFIG)
+                            .filter(key => !STANDARD_RACKS.includes(key as any))
+                            .map(zone => (
+                                <button
+                                    key={zone}
+                                    onClick={() => { setSelectedRack(zone); setSelectedLocation(null); }}
+                                    className={`px-4 py-1 text-sm font-bold rounded transition-colors whitespace-nowrap ${selectedRack === zone
+                                        ? 'bg-amber-500 text-black'
+                                        : 'bg-slate-800 text-slate-400 hover:text-amber-400'
+                                        }`}
+                                >
+                                    {zone === 'STG' ? 'STAGING' :
+                                        zone === 'ADJ' ? 'ADJUSTMENT' :
+                                            zone === 'RSV' ? 'RESERVE' : zone}
+                                </button>
+                            ))}
                     </div>
 
                     {/* Standard Racks Bar */}
@@ -322,7 +329,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                 {/* Header Row - Levels */}
                                 <div className="flex mb-2 pl-12">
                                     {['Floor', '1', '2', '3'].map(levelDisplay => (
-                                        <div key={levelDisplay} className="w-10 mx-2 text-center text-[10px] font-bold text-slate-500 uppercase flex-none">
+                                        <div key={levelDisplay} className={`w-10 mx-2 text-center text-[10px] font-bold text-slate-500 uppercase flex-none ${levelDisplay === 'Floor' ? 'mr-8' : ''}`}>
                                             {levelDisplay === 'Floor' ? 'FLR' : `L${levelDisplay}`}
                                         </div>
                                     ))}
@@ -349,6 +356,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                                     className={`
                                                          mx-2 border rounded-sm cursor-pointer transition-all relative group
                                                          flex items-center justify-center text-xs w-10 h-10 aspect-square
+                                                         ${level === 'Floor' ? 'mr-8' : ''}
                                                          ${isSelected ? 'ring-2 ring-primary border-primary z-10 shadow-[0_0_10px_rgba(139,92,246,0.5)]' : 'border-white/5'}
                                                          ${hasItems
                                                             ? 'bg-primary/20 hover:bg-primary/30 border-primary/30 text-primary-200'
@@ -376,7 +384,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                 <div className="flex mb-2 pl-12">
                                     {Array.from({ length: currentBays }, (_, i) => i + 1).map(bay => (
                                         <div key={bay} className="w-10 mx-2 text-center text-[10px] font-bold text-slate-500 uppercase flex-none">
-                                            {bay}
+                                            R{bay}
                                         </div>
                                     ))}
                                 </div>
@@ -386,7 +394,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                     <div key={level} className="flex mb-1">
                                         {/* Level Label */}
                                         <div className="w-12 flex-none flex items-center justify-center text-[10px] font-bold text-slate-500 text-center px-1">
-                                            {level === 'Floor' ? 'FLR' : (['STG', 'ADJ'].includes(selectedRack) ? `P${level}` : `L${level}`)}
+                                            {level === 'Floor' ? 'FLR' : level}
                                         </div>
 
                                         {/* Cells */}
@@ -579,15 +587,15 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                                             </select>
 
                                                             {/* Dynamic Range based on destination Rack */}
-                                                            <input
-                                                                type="number"
-                                                                min="1"
-                                                                max={AREA_CONFIG[moveDest.rack]?.bays || 12}
+                                                            <select
                                                                 value={moveDest.bay}
                                                                 onChange={(e) => setMoveDest({ ...moveDest, bay: parseInt(e.target.value) || 1 })}
-                                                                className="w-12 px-1 py-1.5 text-xs border border-white/10 rounded bg-slate-950 text-white focus:border-purple-500 outline-none"
-                                                                title={`1-${AREA_CONFIG[moveDest.rack]?.bays}`}
-                                                            />
+                                                                className="w-16 px-1 py-1.5 text-xs border border-white/10 rounded bg-slate-950 text-white focus:border-purple-500 outline-none"
+                                                            >
+                                                                {Array.from({ length: AREA_CONFIG[moveDest.rack]?.bays || 12 }, (_, i) => i + 1).map(b => (
+                                                                    <option key={b} value={b}>{b}</option>
+                                                                ))}
+                                                            </select>
 
                                                             <select
                                                                 value={moveDest.level}

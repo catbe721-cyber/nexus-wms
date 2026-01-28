@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+
+import React, { useState, useMemo } from 'react';
 import { InventoryItem, Product } from '../types';
-import { FileText, AlertTriangle, Search, Package } from 'lucide-react';
-import { smartSearch } from '../utils';
+import { FileText, AlertTriangle, Search, Package, Filter } from 'lucide-react';
+import { smartSearch, getCategoryColor } from '../utils';
 
 interface InventoryListProps {
     inventory: InventoryItem[];
@@ -10,6 +11,13 @@ interface InventoryListProps {
 
 const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) => {
     const [searchTerm, setSearchTerm] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+
+    // Derive dynamic categories from products
+    const availableCategories = useMemo(() => {
+        const categories = new Set(products.map(p => p.defaultCategory).filter(Boolean));
+        return Array.from(categories).sort();
+    }, [products]);
 
     // Aggregate logic
     const inventorySummary = React.useMemo(() => {
@@ -43,9 +51,11 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
         return Object.values(summary);
     }, [inventory, products]);
 
-    const filteredItems = inventorySummary.filter(item =>
-        smartSearch(item, ['productCode', 'name', 'category'], searchTerm)
-    );
+    const filteredItems = inventorySummary.filter(item => {
+        const matchesSearch = smartSearch(item, ['productCode', 'name', 'category'], searchTerm);
+        const matchesCategory = categoryFilter === 'ALL' || item.category === categoryFilter;
+        return matchesSearch && matchesCategory;
+    });
 
     const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
@@ -59,15 +69,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
         setExpandedItems(newSet);
     };
 
-    const getCategoryColor = (cat: string) => {
-        const upperCat = cat?.toUpperCase() || '';
-        if (upperCat === 'RTE') return 'bg-green-500/20 text-green-400 border border-green-500/30';
-        if (upperCat === 'RAW') return 'bg-red-500/20 text-red-400 border border-red-500/30';
-        if (upperCat === 'FG') return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
-        if (upperCat === 'WIP') return 'bg-amber-500/20 text-amber-400 border border-amber-500/30';
-        if (['PKG', 'PIB', 'PBX', 'PFL'].includes(upperCat)) return 'bg-purple-500/20 text-purple-400 border border-purple-500/30';
-        return 'bg-slate-800 text-slate-400 border border-white/10';
-    };
+
 
     return (
         <div className="space-y-6">
@@ -79,15 +81,33 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
                     </h2>
                     <p className="text-sm text-slate-400">Aggregated view by product. Click items to see bin breakdown.</p>
                 </div>
-                <div className="relative w-full md:w-64">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" />
-                    <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Search inventory..."
-                        className="w-full pl-9 pr-4 py-2 border border-white/10 bg-black/40 rounded-lg text-sm text-slate-200 focus:ring-2 focus:ring-primary outline-none placeholder-slate-600"
-                    />
+
+                <div className="flex gap-2 w-full md:w-auto">
+                    {/* Category Filter */}
+                    <div className="relative">
+                        <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" />
+                        <select
+                            value={categoryFilter}
+                            onChange={(e) => setCategoryFilter(e.target.value)}
+                            className="pl-9 pr-8 py-2 border border-white/10 bg-black/40 rounded-lg text-sm text-slate-200 focus:ring-2 focus:ring-primary outline-none appearance-none cursor-pointer"
+                        >
+                            <option value="ALL">All Categories</option>
+                            {availableCategories.map((cat: string) => (
+                                <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="relative flex-1 md:w-64">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" />
+                        <input
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Search inventory..."
+                            className="w-full pl-9 pr-4 py-2 border border-white/10 bg-black/40 rounded-lg text-sm text-slate-200 focus:ring-2 focus:ring-primary outline-none placeholder-slate-600"
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -97,7 +117,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
                         <thead className="bg-black/40 text-xs uppercase font-bold text-slate-400 border-b border-white/10 tracking-wider">
                             <tr>
                                 <th className="px-6 py-4">Item</th>
-                                <th className="px-6 py-4">Category</th>
+                                {/* <th className="px-6 py-4">Category</th> REMOVED */}
                                 <th className="px-6 py-4 text-right">Total Qty</th>
                                 <th className="px-6 py-4">Status</th>
                                 <th className="px-6 py-4">Locations Found</th>
@@ -119,14 +139,22 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
                                             className="hover:bg-white/5 transition-colors cursor-pointer group"
                                         >
                                             <td className="px-6 py-4">
-                                                <div className="font-bold text-slate-200 text-base group-hover:text-primary transition-colors">{item.name}</div>
-                                                <div className="text-xs text-slate-500 font-mono mt-0.5">{item.productCode}</div>
+                                                <div className="flex items-center gap-2">
+                                                    <div>
+                                                        <div className="font-bold text-slate-200 text-base group-hover:text-primary transition-colors">{item.name}</div>
+                                                        <div className="text-xs text-slate-500 font-mono mt-0.5">{item.productCode}</div>
+                                                    </div>
+                                                    <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${getCategoryColor(item.category)}`}>
+                                                        {item.category}
+                                                    </span>
+                                                </div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${getCategoryColor(item.category)}`}>
+                                            {/* Category Column Removed */}
+                                            {/* <td className="px-6 py-4">
+                                                <span className={`px - 2 py - 0.5 rounded text - [10px] font - bold uppercase tracking - wide border ${ getCategoryColor(item.category) } `}>
                                                     {item.category}
                                                 </span>
-                                            </td>
+                                            </td> */}
                                             <td className="px-6 py-4 text-right">
                                                 <span className="font-bold text-white text-lg font-mono">{item.qty}</span>
                                                 <span className="text-xs text-slate-500 ml-1">{item.unit}</span>

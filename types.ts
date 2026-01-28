@@ -80,6 +80,12 @@ export const AREA_CONFIG: Record<string, { bays: number, levels: string[] }> = {
     levels: ['4', '3', '2', '1']
   },
 
+  // Reserve Area, 4 Bays, Levels 12 down to 1
+  'RSV': {
+    bays: 4,
+    levels: Array.from({ length: 12 }, (_, i) => String(12 - i))
+  },
+
   // Standard Racks (A-J)
   ...Object.fromEntries(STANDARD_RACKS.map(r => [r, { bays: BAYS_PER_RACK, levels: LEVELS }])),
 };

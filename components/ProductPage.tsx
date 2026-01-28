@@ -2,7 +2,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { Product, generateId } from '../types';
 import { Plus, Upload, Trash2, Edit, Save, X, Search, Boxes, AlertTriangle } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
-import { smartSearch } from '../utils';
+import { smartSearch, getCategoryColor } from '../utils';
 
 interface ProductPageProps {
   products: Product[];
@@ -190,15 +190,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
   };
 
   // Helper for colors
-  const getCategoryColor = (cat: string) => {
-    const c = cat?.toUpperCase() || '';
-    if (c === 'RTE') return 'bg-green-500/20 text-green-400 border border-green-500/30';
-    if (c === 'RAW') return 'bg-red-500/20 text-red-400 border border-red-500/30';
-    if (c === 'FG') return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
-    if (c === 'WIP') return 'bg-amber-500/20 text-amber-400 border border-amber-500/30';
-    if (['PKG', 'PIB', 'PBX', 'PFL'].includes(c)) return 'bg-purple-500/20 text-purple-400 border border-purple-500/30';
-    return 'bg-slate-800 text-slate-400 border border-white/10';
-  };
+
 
   const filteredProducts = products.filter(p =>
     smartSearch(p, ['productCode', 'name'], searchTerm)
