@@ -186,14 +186,38 @@ export function useAppState() {
 
                 // Overwrite local state with Cloud Data
                 // We trust the cloud as the source of truth on startup
-                if (data.inventory) setInventory(data.inventory);
+                if (data.inventory) {
+                    // MIGRATION / SANITIZATION: Fix legacy STG-01/ADJ-01 formats
+                    const cleanInventory = data.inventory.map((item: InventoryItem) => ({
+                        ...item,
+                        locations: item.locations.map(loc => {
+                            // Fix STG-01 -> STG
+                            if (loc.rack === 'STG-01' || loc.rack === 'STG') {
+                                // Ensure level is valid for STG (1-12)
+                                // If it was 'Floor', map to '1'.
+                                const newLevel = (loc.level === 'Floor') ? '1' : loc.level;
+                                return { ...loc, rack: 'STG', level: newLevel };
+                            }
+                            // Fix ADJ-01 -> ADJ
+                            if (loc.rack === 'ADJ-01' || loc.rack === 'ADJ') {
+                                return { ...loc, rack: 'ADJ', level: (loc.level === 'Floor' ? '1' : loc.level) };
+                            }
+                            return loc;
+                        })
+                    }));
+                    setInventory(cleanInventory);
+                }
+
                 if (data.products) setProducts(data.products);
                 if (data.transactions) setTransactions(data.transactions);
-                if (data.locations) setMasterLocations(data.locations);
+
+                // IGNORE cloud locations to enforce local schema (AREA_CONFIG) as source of truth
+                // if (data.locations) setMasterLocations(data.locations); 
+
                 if (data.pickLists) setSavedPickLists(data.pickLists);
 
                 isInitialSyncDone.current = true;
-                if (!silent) console.log('NexusWMS: Initial data loaded from Google Sheets.');
+                if (!silent) console.log('NexusWMS: Initial data loaded from Google Sheets (Sanitized).');
             }
 
         } catch (error: any) {
@@ -508,6 +532,12 @@ export function useAppState() {
             .slice(0, 5);
     }, [inventory]);
 
+    const handleUpdateProducts = (newProducts: Product[]) => {
+        // 1. Update Product Master ONLY
+        // As per user request, do not cascade changes to historical inventory or transactions
+        setProducts(newProducts);
+    };
+
     return {
         inventory,
         products,
@@ -534,6 +564,7 @@ export function useAppState() {
             handleMapInventoryChange,
             handleMoveStock,
             handleSyncGas,
+            handleUpdateProducts,
             showAlert,
             closeModal
         }

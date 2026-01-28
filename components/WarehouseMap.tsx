@@ -50,7 +50,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
 
     // Current Dimensions based on selected rack
     // Safe lookup, default to STG-01 if missing
-    const currentConfig = AREA_CONFIG[selectedRack] || AREA_CONFIG['STG-01'];
+    const currentConfig = AREA_CONFIG[selectedRack] || AREA_CONFIG['STG'];
     const currentBays = currentConfig?.bays || 12;
     const currentLevels = currentConfig?.levels || ['Floor'];
 

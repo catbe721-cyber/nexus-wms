@@ -10,7 +10,7 @@ export interface Product {
 }
 
 export interface InventoryLocation {
-  rack: string; // A-H, J, STG-01, ADJ-01...
+  rack: string; // A-H, J, STG, ADJ...
   bay: number;
   level: string;
 }

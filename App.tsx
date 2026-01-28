@@ -41,33 +41,7 @@ import SidebarItem from './components/SidebarItem';
 import { GASService } from './services/gasApi';
 
 // Updated initial data based on user request - USING NEW SCHEMA (productCode only)
-const INITIAL_PRODUCTS: Product[] = [
-  { productCode: 'UFTS0010', name: 'Sushi Tray HP 65', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 20 },
-  { productCode: 'UFTS0001', name: 'BH-20 Sushi Tray/BX -20', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 20 },
-  { productCode: 'UV000008', name: 'Nori Half Size', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 10 },
-  { productCode: 'UV000009', name: 'Nori Full Size', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 10 },
-  { productCode: 'UFTP0002', name: 'SFLM-2 LID', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 20 },
-  { productCode: 'UFTP0001', name: 'SBM-24C', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 20 },
-  { productCode: 'UFHS0001', name: 'Sushi Box', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 50 },
-  { productCode: 'UFHP0001', name: 'Poke Bowl Box', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 50 },
-  { productCode: 'UV000007', name: 'GINGER', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 15 },
-  { productCode: 'UE000013', name: 'Soy Sauce', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 15 },
-  { productCode: 'UE000008', name: 'WASABI', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 10 },
-  { productCode: 'UE000023', name: 'Sugar', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 15 },
-  { productCode: 'UE000021', name: 'Vinegar', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 15 },
-  { productCode: 'UE000004', name: 'Rice', defaultCategory: 'RAW', defaultUnit: 'PLT', minStockLevel: 5 },
-  { productCode: 'UE000003', name: 'Mayonnaise', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 10 },
-  { productCode: 'UE000031', name: 'Peach', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 10 },
-  { productCode: 'UFLC0001', name: 'Costco Family Pack California Roll', defaultCategory: 'RTE', defaultUnit: 'CS', minStockLevel: 10 },
-  { productCode: 'UFLV0001', name: 'Costco Family Pack Veggie Roll', defaultCategory: 'RTE', defaultUnit: 'CS', minStockLevel: 10 },
-  { productCode: 'UFLA0001', name: 'Takumi Premium Rainbow Combo', defaultCategory: 'RTE', defaultUnit: 'CS', minStockLevel: 10 },
-  { productCode: 'UFLP0001', name: 'Poke Bowl label', defaultCategory: 'PKG', defaultUnit: 'ROL', minStockLevel: 5 },
-  { productCode: 'UFIN0001', name: 'Ingredion Corn Starch', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 5 },
-  { productCode: 'UFTS0002', name: 'BX61', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 10 },
-  { productCode: 'FHE00001', name: '15*15*5', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 10 },
-  { productCode: 'FB000012', name: 'Tape', defaultCategory: 'PKG', defaultUnit: 'ROL', minStockLevel: 10 },
-  { productCode: 'UFME0001', name: 'Costco 454g CAB Beef Chuck Rolls-USA-V2-327-film', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 15 },
-];
+import { INITIAL_PRODUCTS } from './consts/initialData';
 
 // URL from environment variable
 const DEFAULT_GAS_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL || '';
@@ -104,6 +78,7 @@ function App() {
     handleMapInventoryChange,
     handleMoveStock,
     handleSyncGas,
+    handleUpdateProducts,
     showAlert,
     closeModal
   } = actions;
@@ -125,7 +100,13 @@ function App() {
           {/* Scanline Effect */}
           <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] z-0 bg-[length:100%_2px,3px_100%]"></div>
 
-          <div className="flex items-center gap-4 mb-10 relative z-10">
+          <div
+            className="flex items-center gap-4 mb-10 relative z-10 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => {
+              setView('dashboard');
+              setSidebarOpen(false);
+            }}
+          >
             <div className="bg-primary/20 p-2.5 rounded-lg border border-primary/50 shadow-[0_0_15px_rgba(139,92,246,0.3)]">
               <Boxes className="w-8 h-8 text-primary" />
             </div>
@@ -455,52 +436,7 @@ function App() {
             view === 'products' && (
               <ProductPage
                 products={products}
-                onUpdateProducts={(newProducts) => {
-                  // 1. Update Product Master
-                  setProducts(newProducts);
-
-                  // 2. Deep Cascade Changes to Inventory (Matches denormalized fields)
-                  setInventory(prevInv => prevInv.map(item => {
-                    const masterMatch = newProducts.find(p => p.productCode === item.productCode);
-                    if (masterMatch) {
-                      const hasDetailChange =
-                        masterMatch.name !== item.productName ||
-                        masterMatch.defaultUnit !== item.unit ||
-                        masterMatch.defaultCategory !== item.category;
-
-                      if (hasDetailChange) {
-                        return {
-                          ...item,
-                          productName: masterMatch.name,
-                          unit: masterMatch.defaultUnit || item.unit,
-                          category: masterMatch.defaultCategory || item.category
-                        };
-                      }
-                    }
-                    return item;
-                  }));
-
-                  // 3. Deep Cascade Changes to Transactions
-                  setTransactions(prevTx => prevTx.map(tx => {
-                    const masterMatch = newProducts.find(p => p.productCode === tx.productCode);
-                    if (masterMatch) {
-                      const hasDetailChange =
-                        masterMatch.name !== tx.productName ||
-                        masterMatch.defaultUnit !== tx.unit ||
-                        masterMatch.defaultCategory !== tx.category;
-
-                      if (hasDetailChange) {
-                        return {
-                          ...tx,
-                          productName: masterMatch.name,
-                          unit: masterMatch.defaultUnit || tx.unit,
-                          category: masterMatch.defaultCategory || tx.category
-                        };
-                      }
-                    }
-                    return tx;
-                  }));
-                }}
+                onUpdateProducts={handleUpdateProducts}
               />
             )
           }
@@ -538,14 +474,13 @@ function App() {
       {/* Global Modal */}
       < ConfirmModal
         isOpen={modalConfig.isOpen}
-        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))
-        }
+        onClose={closeModal}
         onConfirm={modalConfig.onConfirm}
         title={modalConfig.title}
         message={modalConfig.message}
         type={modalConfig.type}
       />
-    </div >
+    </div>
   );
 }
 

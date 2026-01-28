@@ -29,3 +29,52 @@ export const smartSearch = <T>(item: T, fields: (keyof T)[], query: string): boo
         });
     });
 };
+
+/**
+ * filterBinCodes
+ * 
+ * Centralized logic for fuzzy searching bin codes.
+ * Supports:
+ * - Direct matches (G-01-1)
+ * - Compressed matches (g011, g11)
+ * - Special handling for STG/ADJ to avoid pollution
+ */
+export const filterBinCodes = (locations: any[], searchTerm: string) => {
+    const cleanSearch = searchTerm.trim().toLowerCase();
+    const searchNoSpaces = cleanSearch.replace(/\s+/g, '');
+
+    // Specific triggers
+    const isStgSearch = cleanSearch.startsWith('s');
+    const isAdjSearch = cleanSearch.startsWith('ad');
+
+    return locations.filter(loc => {
+        // Defensive checks
+        if (!loc || !loc.binCode) return false;
+
+        const rackLower = loc.rack ? loc.rack.toLowerCase() : '';
+
+        // 1. Handling Special Areas (STG, ADJ)
+        if (rackLower.startsWith('stg') && !isStgSearch) return false;
+        if (rackLower.startsWith('adj') && !isAdjSearch) return false;
+
+        // 2. Handling Standard Racks
+        // Smart fuzzy matching for "G11" -> "G-01-1"
+        const bayNum = loc.bay;
+        const bayStr = String(bayNum); // "1", "11"
+        const bayPad = String(bayNum).padStart(2, '0'); // "01", "11"
+        const levelStr = loc.level ? String(loc.level).toLowerCase() : '';
+
+        const variants = [
+            // Standard "Rack-Bay-Level" (G-01-1)
+            loc.binCode.toLowerCase(),
+            // Shorthand simplified (g011)
+            `${rackLower}${bayPad}${levelStr}`,
+            // Compact shorthand (g11 -> matches G-01-1)
+            `${rackLower}${bayStr}${levelStr}`,
+            // Just the components (g11 also in here potentially)
+            `${rackLower}${bayStr}`
+        ];
+
+        return variants.some(v => v.includes(searchNoSpaces));
+    });
+};

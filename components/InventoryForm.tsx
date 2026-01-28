@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Product, InventoryItem, InventoryLocation, MasterLocation } from '../types';
-import { smartSearch } from '../utils';
+import { smartSearch, filterBinCodes } from '../utils';
 import { X, CheckCircle, Save, MapPin, Lock, Check } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
 
@@ -77,50 +77,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
   const filteredLocations = useMemo(() => {
     if (!locationSearch) return [];
 
-    const cleanSearch = locationSearch.trim().toLowerCase();
-    const searchNoSpaces = cleanSearch.replace(/\s+/g, '');
-
-    // Specific triggers
-    const isStgSearch = cleanSearch.startsWith('s');
-    const isAdjSearch = cleanSearch.startsWith('ad');
-
-    return masterLocations.filter(loc => {
-      // Defensive checks
-      if (!loc || !loc.binCode) return false;
-
-      const rackLower = loc.rack ? loc.rack.toLowerCase() : '';
-
-      // 1. Handling Special Areas (STG, ADJ)
-      if (rackLower.startsWith('stg')) {
-        // Only show STG if user explicitly starts typing S...
-        return isStgSearch;
-      }
-      if (rackLower.startsWith('adj')) {
-        // Only show ADJ if user explicitly starts typing AD...
-        return isAdjSearch;
-      }
-
-      // 2. Handling Standard Racks
-      // Smart fuzzy matching for "G11" -> "G-01-1"
-      const bayNum = loc.bay;
-      const bayStr = String(bayNum); // "1", "11"
-      const bayPad = String(bayNum).padStart(2, '0'); // "01", "11"
-      const levelStr = loc.level ? String(loc.level).toLowerCase() : '';
-
-      const variants = [
-        // Standard "Rack-Bay-Level" (G-01-1)
-        loc.binCode.toLowerCase(),
-        // Shorthand simplified (g011)
-        `${rackLower}${bayPad}${levelStr}`,
-        // Compact shorthand (g11 -> matches G-01-1)
-        `${rackLower}${bayStr}${levelStr}`,
-        // Just the components (g11 also in here potentially)
-        `${rackLower}${bayStr}`
-      ];
-
-      return variants.some(v => v.includes(searchNoSpaces));
-
-    }).slice(0, 8);
+    return filterBinCodes(masterLocations, locationSearch).slice(0, 8);
   }, [locationSearch, masterLocations]);
 
   const handleSelectProduct = (product: Product) => {
