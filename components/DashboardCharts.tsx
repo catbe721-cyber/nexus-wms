@@ -40,14 +40,31 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ inventory, transactio
     // 2. Rack Utilization Data
     const rackData = useMemo(() => {
         const counts: Record<string, number> = {};
-        const racks = ['STG', 'ADJ', 'RSV', ...Object.keys(AREA_CONFIG).filter(k => !['STG', 'ADJ', 'RSV'].includes(k))];
+
+        // Use updated keys from AREA_CONFIG (S, R, Z are already in there)
+        const racks = Object.keys(AREA_CONFIG).sort((a, b) => {
+            // Optional: Custom sort to put S, R, Z first or alphabetical
+            const priority = ['S', 'R', 'Z'];
+            const idxA = priority.indexOf(a);
+            const idxB = priority.indexOf(b);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            return a.localeCompare(b);
+        });
 
         racks.forEach(r => counts[r] = 0); // Init
 
         inventory.forEach(item => {
             item.locations.forEach(loc => {
-                if (counts[loc.rack] !== undefined) {
-                    counts[loc.rack]++;
+                let rack = loc.rack;
+                // Normalize legacy codes
+                if (rack === 'STG') rack = 'S';
+                if (rack === 'ADJ') rack = 'R';
+                if (rack === 'RSV') rack = 'Z';
+
+                if (counts[rack] !== undefined) {
+                    counts[rack]++;
                 }
             });
         });
@@ -71,8 +88,8 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ inventory, transactio
         transactions.forEach(t => {
             const d = new Date(t.date).toLocaleDateString();
             if (data[d]) {
-                if (t.type === 'INBOUND') data[d].inbound += Math.abs(t.quantity);
-                if (t.type === 'OUTBOUND') data[d].outbound += Math.abs(t.quantity);
+                if (t.type === 'INBOUND') data[d].inbound += 1;
+                if (t.type === 'OUTBOUND') data[d].outbound += 1;
             }
         });
 

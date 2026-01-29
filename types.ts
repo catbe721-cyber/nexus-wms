@@ -67,23 +67,24 @@ export const LEVELS = ['3', '2', '1', 'Floor'] as const;
 export const STANDARD_RACKS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J'] as const;
 
 // Define Area Dimensions
+// Define Area Dimensions
 export const AREA_CONFIG: Record<string, { bays: number, levels: string[] }> = {
-  // Staging Area, 11 Bays, Levels 12 down to 1
-  'STG': {
+  // Staging Area (S), 11 Bays, Levels 12 down to 1
+  'S': {
     bays: 11,
     levels: Array.from({ length: 12 }, (_, i) => String(12 - i))
   },
 
-  // Adjustment Area, 7 Bays, Levels 4 down to 1
-  'ADJ': {
+  // Reserve (formerly Adjustment) (R), 7 Rows (Bays), 4 Bays (Levels)
+  'R': {
     bays: 7,
     levels: ['4', '3', '2', '1']
   },
 
-  // Reserve Area, 4 Bays, Levels 12 down to 1
-  'RSV': {
+  // Zone (formerly Reserve) (Z), 4 Rows (Bays), 8 Bays (Levels)
+  'Z': {
     bays: 4,
-    levels: Array.from({ length: 12 }, (_, i) => String(12 - i))
+    levels: Array.from({ length: 8 }, (_, i) => String(8 - i))
   },
 
   // Standard Racks (A-J)
@@ -114,10 +115,10 @@ export const getBestLocationScore = (locations: InventoryLocation[]) => {
   if (locations.length === 0) return 999999999;
 
   const scoreLocation = (loc: InventoryLocation) => {
-    // 1. Area Priority (STG=0, ADJ=1, Standard=2)
+    // 1. Area Priority (STG/S=0, ADJ/R=1, Standard=2)
     let areaScore = 2;
-    if (loc.rack.startsWith('STG')) areaScore = 0;
-    else if (loc.rack.startsWith('ADJ')) areaScore = 1;
+    if (loc.rack === 'S' || loc.rack.startsWith('STG')) areaScore = 0;
+    else if (loc.rack === 'R' || loc.rack.startsWith('ADJ')) areaScore = 1;
 
     // 2. Level Priority (Floor=0, 1=1, 2=2...)
     let levelScore = 0;

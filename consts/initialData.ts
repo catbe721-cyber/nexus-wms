@@ -26,4 +26,5 @@ export const INITIAL_PRODUCTS: Product[] = [
     { productCode: 'FHE00001', name: '15*15*5', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 10 },
     { productCode: 'FB000012', name: 'Tape', defaultCategory: 'PKG', defaultUnit: 'ROL', minStockLevel: 10 },
     { productCode: 'UFME0001', name: 'Costco 454g CAB Beef Chuck Rolls-USA-V2-327-film', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 15 },
+    { productCode: 'UE000032', name: 'Fine Sugar 20kg/bg', defaultCategory: 'RAW', defaultUnit: 'BG', minStockLevel: 10 },
 ];

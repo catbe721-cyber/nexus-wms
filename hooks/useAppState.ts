@@ -4,33 +4,7 @@ import { GASService } from '../services/gasApi';
 import { ModalType } from '../components/ConfirmModal';
 
 // Updated initial data based on user request - USING NEW SCHEMA (productCode only)
-const INITIAL_PRODUCTS: Product[] = [
-    { productCode: 'UFTS0010', name: 'Sushi Tray HP 65', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 20 },
-    { productCode: 'UFTS0001', name: 'BH-20 Sushi Tray/BX -20', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 20 },
-    { productCode: 'UV000008', name: 'Nori Half Size', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 10 },
-    { productCode: 'UV000009', name: 'Nori Full Size', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 10 },
-    { productCode: 'UFTP0002', name: 'SFLM-2 LID', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 20 },
-    { productCode: 'UFTP0001', name: 'SBM-24C', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 20 },
-    { productCode: 'UFHS0001', name: 'Sushi Box', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 50 },
-    { productCode: 'UFHP0001', name: 'Poke Bowl Box', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 50 },
-    { productCode: 'UV000007', name: 'GINGER', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 15 },
-    { productCode: 'UE000013', name: 'Soy Sauce', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 15 },
-    { productCode: 'UE000008', name: 'WASABI', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 10 },
-    { productCode: 'UE000023', name: 'Sugar', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 15 },
-    { productCode: 'UE000021', name: 'Vinegar', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 15 },
-    { productCode: 'UE000004', name: 'Rice', defaultCategory: 'RAW', defaultUnit: 'PLT', minStockLevel: 5 },
-    { productCode: 'UE000003', name: 'Mayonnaise', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 10 },
-    { productCode: 'UE000031', name: 'Peach', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 10 },
-    { productCode: 'UFLC0001', name: 'Costco Family Pack California Roll', defaultCategory: 'RTE', defaultUnit: 'CS', minStockLevel: 10 },
-    { productCode: 'UFLV0001', name: 'Costco Family Pack Veggie Roll', defaultCategory: 'RTE', defaultUnit: 'CS', minStockLevel: 10 },
-    { productCode: 'UFLA0001', name: 'Takumi Premium Rainbow Combo', defaultCategory: 'RTE', defaultUnit: 'CS', minStockLevel: 10 },
-    { productCode: 'UFLP0001', name: 'Poke Bowl label', defaultCategory: 'PKG', defaultUnit: 'ROL', minStockLevel: 5 },
-    { productCode: 'UFIN0001', name: 'Ingredion Corn Starch', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 5 },
-    { productCode: 'UFTS0002', name: 'BX61', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 10 },
-    { productCode: 'FHE00001', name: '15*15*5', defaultCategory: 'PKG', defaultUnit: 'CS', minStockLevel: 10 },
-    { productCode: 'FB000012', name: 'Tape', defaultCategory: 'PKG', defaultUnit: 'ROL', minStockLevel: 10 },
-    { productCode: 'UFME0001', name: 'Costco 454g CAB Beef Chuck Rolls-USA-V2-327-film', defaultCategory: 'RAW', defaultUnit: 'CS', minStockLevel: 15 },
-];
+import { INITIAL_PRODUCTS } from '../consts/initialData';
 
 const DEFAULT_GAS_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL || '';
 
@@ -52,10 +26,39 @@ export function useAppState() {
 
     const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
 
+    // Helper to sanitize/migrate inventory data
+    const sanitizeInventory = (items: InventoryItem[]): InventoryItem[] => {
+        return items.map(item => ({
+            ...item,
+            locations: item.locations.map(loc => {
+                let rack = loc.rack;
+                let level = loc.level;
+
+                // MIGRATION: Fix legacy STG/ADJ/RSV formats
+                // STG/STG-01 -> S
+                if (rack === 'STG' || rack === 'STG-01') {
+                    rack = 'S';
+                    if (level === 'Floor') level = '1';
+                }
+                // ADJ/ADJ-01 -> R
+                if (rack === 'ADJ' || rack === 'ADJ-01') {
+                    rack = 'R';
+                    if (level === 'Floor') level = '1';
+                }
+                // RSV -> Z
+                if (rack === 'RSV') {
+                    rack = 'Z';
+                }
+
+                return { ...loc, rack, level };
+            })
+        }));
+    };
+
     // -- State Initialization --
     const [inventory, setInventory] = useState<InventoryItem[]>(() => {
         const saved = localStorage.getItem('nexuswms_inventory');
-        return saved ? JSON.parse(saved) : [];
+        return saved ? sanitizeInventory(JSON.parse(saved)) : [];
     });
 
     const [products, setProducts] = useState<Product[]>(() => {
@@ -188,23 +191,7 @@ export function useAppState() {
                 // We trust the cloud as the source of truth on startup
                 if (data.inventory) {
                     // MIGRATION / SANITIZATION: Fix legacy STG-01/ADJ-01 formats
-                    const cleanInventory = data.inventory.map((item: InventoryItem) => ({
-                        ...item,
-                        locations: item.locations.map(loc => {
-                            // Fix STG-01 -> STG
-                            if (loc.rack === 'STG-01' || loc.rack === 'STG') {
-                                // Ensure level is valid for STG (1-12)
-                                // If it was 'Floor', map to '1'.
-                                const newLevel = (loc.level === 'Floor') ? '1' : loc.level;
-                                return { ...loc, rack: 'STG', level: newLevel };
-                            }
-                            // Fix ADJ-01 -> ADJ
-                            if (loc.rack === 'ADJ-01' || loc.rack === 'ADJ') {
-                                return { ...loc, rack: 'ADJ', level: (loc.level === 'Floor' ? '1' : loc.level) };
-                            }
-                            return loc;
-                        })
-                    }));
+                    const cleanInventory = sanitizeInventory(data.inventory);
                     setInventory(cleanInventory);
                 }
 

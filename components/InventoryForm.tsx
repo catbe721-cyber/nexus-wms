@@ -115,7 +115,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
     // Auto-assign to Staging R1 if no location provided
     const finalLocations = locations.length > 0
       ? locations
-      : [{ rack: 'STG', bay: 1, level: '1' }];
+      : [{ rack: 'S', bay: 1, level: '1' }];
 
     onSave({
       productCode: selectedProduct.productCode,
@@ -296,7 +296,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
           <div className="flex flex-wrap gap-2">
             {locations.length === 0 && <span className="text-sm text-slate-500 italic">No specific bins selected. Will default to Staging.</span>}
             {locations.map((loc, idx) => (
-              <div key={idx} className={`border rounded-full px-3 py-1 text-sm flex items-center gap-2 shadow-sm ${loc.rack.startsWith('STG') ? 'bg-amber-900/30 border-amber-700/50 text-amber-200' : 'bg-slate-800 border-slate-600 text-slate-300'}`}>
+              <div key={idx} className={`border rounded-full px-3 py-1 text-sm flex items-center gap-2 shadow-sm ${loc.rack === 'S' || loc.rack.startsWith('STG') ? 'bg-amber-900/30 border-amber-700/50 text-amber-200' : 'bg-slate-800 border-slate-600 text-slate-300'}`}>
                 <span className="font-bold font-mono">
                   {`${loc.rack}-${loc.bay}-${loc.level}`}
                 </span>

@@ -171,7 +171,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-wrap gap-1">
                                                     {Array.from(item.locations).slice(0, 3).map((loc: string) => (
-                                                        <span key={loc} className={`px-2 py-0.5 rounded text-xs border ${loc.startsWith('STG')
+                                                        <span key={loc} className={`px-2 py-0.5 rounded text-xs border ${loc.startsWith('S-') || loc.startsWith('STG')
                                                             ? 'bg-amber-500/20 text-amber-400 border-amber-500/30 font-bold'
                                                             : 'bg-slate-800 text-slate-400 border-white/5'
                                                             }`}>
@@ -202,7 +202,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
                                                                         <span className="font-mono text-slate-300 font-bold">
                                                                             {invItem.locations.map(l => `${l.rack}-${l.bay}-${l.level}`).join(', ')}
                                                                         </span>
-                                                                        {invItem.locations[0]?.rack.startsWith('STG') && (
+                                                                        {(invItem.locations[0]?.rack === 'S' || invItem.locations[0]?.rack.startsWith('STG')) && (
                                                                             <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/30">Staging</span>
                                                                         )}
                                                                     </div>

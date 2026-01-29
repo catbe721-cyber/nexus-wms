@@ -53,9 +53,9 @@ export const filterBinCodes = (locations: any[], searchTerm: string) => {
 
         const rackLower = loc.rack ? loc.rack.toLowerCase() : '';
 
-        // 1. Handling Special Areas (STG, ADJ)
-        if (rackLower.startsWith('stg') && !isStgSearch) return false;
-        if (rackLower.startsWith('adj') && !isAdjSearch) return false;
+        // 1. Handling Special Areas (Auto-Legacy Support)
+        // If rack is S, R, Z or standard rack, we treat equally now.
+        // Old STG/ADJ logic removed to allow flexible searching of new codes.
 
         // 2. Handling Standard Racks
         // Smart fuzzy matching for "G11" -> "G-01-1"
