@@ -551,7 +551,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                                         const isGapBelow = bay % 2 !== 0 && bay !== 1; // Gap after odd numbers (11, 9...) except 1 (bottom)
 
                                                         return (
-                                                            <div key={`${rack}-${bay}-container`} className={`w-full ${isGapBelow ? 'mb-4' : ''}`}>
+                                                            <div key={`${rack}-${bay}-container`} className={`w-full ${isGapBelow ? 'mb-1' : ''}`}>
                                                                 <div
                                                                     key={`${rack}-${bay}-${levelView}`}
                                                                     draggable={hasItems && canEdit}
@@ -774,7 +774,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                                 />
                                                 {/* Custom Dropdown */}
                                                 {showDropdown && newItemCode && filteredProducts.length > 0 && (
-                                                    <div className="absolute top-full left-0 w-full z-[100] bg-slate-900 border border-slate-700 rounded-b-lg shadow-xl max-h-48 overflow-y-auto mt-1">
+                                                    <div className="absolute top-full left-0 w-64 mt-1 bg-slate-900 border border-white/20 rounded shadow-2xl z-50 max-h-48 overflow-y-auto">
                                                         {filteredProducts.map(p => (
                                                             <div
                                                                 key={p.productCode}
@@ -783,9 +783,9 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                                                     setNewItemCode(p.name);
                                                                     setShowDropdown(false);
                                                                 }}
-                                                                className="px-3 py-2 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0"
+                                                                className="px-3 py-2 hover:bg-slate-800 cursor-pointer border-b border-white/5 last:border-0"
                                                             >
-                                                                <div className="text-xs font-bold text-slate-200 truncate">{p.name}</div>
+                                                                <div className="text-xs font-bold text-slate-200 whitespace-normal">{p.name}</div>
                                                                 <div className="text-[10px] text-slate-500 font-mono">{p.productCode}</div>
                                                             </div>
                                                         ))}
