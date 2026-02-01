@@ -105,6 +105,8 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
         setMoveMode('FULL');
     }, [selectedRack, selectedLocation]);
 
+
+
     // Permissions - Removed role based access
     const canEdit = true;
 
@@ -146,6 +148,34 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
         if (!selectedLocation) return [];
         return getItemsInCell(selectedLocation.rack, selectedLocation.bay, selectedLocation.level);
     }, [selectedLocation, inventory]);
+
+    // Keyboard Listener for Delete
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== 'Delete') return;
+            if (!canEdit || !selectedLocation) return;
+
+            // Prevent if user is typing in an input
+            const activeTag = document.activeElement?.tagName.toLowerCase();
+            if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') return;
+
+            if (selectedCellItems.length === 0) return;
+
+            showConfirm(
+                "Clear Bin?",
+                `Are you sure you want to remove all ${selectedCellItems.length} items from ${selectedLocation.rack}-${selectedLocation.bay}-${selectedLocation.level}?`,
+                () => {
+                    selectedCellItems.forEach(item => {
+                        onInventoryChange('DELETE', item, -item.quantity);
+                    });
+                },
+                'danger'
+            );
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedLocation, selectedCellItems, canEdit]);
 
 
 
@@ -330,7 +360,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
     const handleDragStart = (e: React.DragEvent, item: InventoryItem) => {
         e.stopPropagation(); // Prevent cell drag when dragging item
         e.dataTransfer.setData("itemId", item.id);
-        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.effectAllowed = "copyMove";
     };
 
     const handleCellDragStart = (e: React.DragEvent, rack: string, bay: number, level: string) => {
@@ -340,11 +370,13 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
             return;
         }
         e.dataTransfer.setData("sourceLoc", JSON.stringify({ rack, bay, level }));
-        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.effectAllowed = "copyMove";
     };
 
     const handleDropOnBin = (e: React.DragEvent, rack: string, bay: number, level: string) => {
         e.preventDefault();
+        const isCopy = e.ctrlKey || e.metaKey;
+        e.dataTransfer.dropEffect = isCopy ? 'copy' : 'move';
 
         // CASE 1: Single Item Drag (from Sidebar)
         const itemId = e.dataTransfer.getData("itemId");
@@ -354,10 +386,10 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
 
             // Prevent dropping on existing location
             const currentLoc = item.locations[0];
-            if (currentLoc && currentLoc.rack === rack && currentLoc.bay === bay && currentLoc.level === level) {
+            if (!isCopy && currentLoc && currentLoc.rack === rack && currentLoc.bay === bay && currentLoc.level === level) {
                 return;
             }
-            handleDropMove(item, { rack, bay, level });
+            handleDropMove(item, { rack, bay, level }, isCopy);
             return;
         }
 
@@ -366,16 +398,16 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
         if (sourceLocStr) {
             const sourceLoc = JSON.parse(sourceLocStr);
             // Prevent drop on self
-            if (sourceLoc.rack === rack && sourceLoc.bay === bay && sourceLoc.level === level) return;
+            if (!isCopy && sourceLoc.rack === rack && sourceLoc.bay === bay && sourceLoc.level === level) return;
 
             const sourceItems = getItemsInCell(sourceLoc.rack, sourceLoc.bay, sourceLoc.level);
             if (sourceItems.length === 0) return;
 
-            handleBulkMove(sourceItems, { rack, bay, level });
+            handleBulkMove(sourceItems, { rack, bay, level }, isCopy);
         }
     };
 
-    const handleBulkMove = (items: InventoryItem[], dest: InventoryLocation) => {
+    const handleBulkMove = (items: InventoryItem[], dest: InventoryLocation, isCopy: boolean = false) => {
         const destItems = getItemsInCell(dest.rack, dest.bay, dest.level);
 
         // Check for merges
@@ -396,21 +428,35 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                 const newTotal = destItem.quantity + srcItem.quantity;
                 const updatedDest = { ...destItem, quantity: newTotal, updatedAt: Date.now() };
                 onInventoryChange('UPDATE', updatedDest, srcItem.quantity);
-                // Delete Source
-                onInventoryChange('DELETE', srcItem, -srcItem.quantity);
+                // Delete Source (only if not copying)
+                if (!isCopy) {
+                    onInventoryChange('DELETE', srcItem, -srcItem.quantity);
+                }
             });
 
-            // Processing direct moves
+            // Processing direct moves/copies
             itemsToMove.forEach(srcItem => {
-                const updatedItem = { ...srcItem, locations: [dest], updatedAt: Date.now() };
-                onInventoryChange('MOVE', updatedItem, 0, { previousLocation: srcItem.locations[0] });
+                if (isCopy) {
+                    // COPY: Create new item at dest
+                    const newItem: InventoryItem = {
+                        ...srcItem,
+                        id: generateId(),
+                        locations: [dest],
+                        updatedAt: Date.now()
+                    };
+                    onInventoryChange('ADD', newItem, srcItem.quantity);
+                } else {
+                    // MOVE: Update location
+                    const updatedItem = { ...srcItem, locations: [dest], updatedAt: Date.now() };
+                    onInventoryChange('MOVE', updatedItem, 0, { previousLocation: srcItem.locations[0] });
+                }
             });
         };
 
         if (itemsToMerge.length > 0) {
             showConfirm(
-                "Merge Items?",
-                `Merging ${itemsToMerge.length} overlapping items into destination. ${itemsToMove.length} unique items will be moved.`,
+                isCopy ? "Merge & Copy Items?" : "Merge Items?",
+                `Merging ${itemsToMerge.length} overlapping items into destination. ${itemsToMove.length} unique items will be ${isCopy ? 'copied' : 'moved'}.`,
                 executeMove,
                 'confirm'
             );
@@ -419,11 +465,10 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
         }
     };
 
-    const handleDropMove = (item: InventoryItem, dest: InventoryLocation) => {
+    const handleDropMove = (item: InventoryItem, dest: InventoryLocation, isCopy: boolean = false) => {
         if (!canEdit) return;
 
         const qtyToMove = item.quantity; // Default to full move for D&D
-        const isFullMove = true;
 
         // Check if dest already has this product
         const destItems = getItemsInCell(dest.rack, dest.bay, dest.level);
@@ -437,20 +482,34 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                 const updatedDestItem = { ...existingDestItem, quantity: newTotal, updatedAt: Date.now() };
                 onInventoryChange('UPDATE', updatedDestItem, qtyToMove);
 
-                // 2. Handle Source (Full Move)
-                onInventoryChange('DELETE', item, -item.quantity);
+                // 2. Handle Source (only delete if not copying)
+                if (!isCopy) {
+                    onInventoryChange('DELETE', item, -item.quantity);
+                }
             }
-            // SCENARIO 2: Move to empty slot
+            // SCENARIO 2: Move/Copy to empty slot
             else {
-                const updatedItem = { ...item, locations: [dest], updatedAt: Date.now() };
-                onInventoryChange('MOVE', updatedItem, 0, { previousLocation: item.locations[0] });
+                if (isCopy) {
+                    // COPY: Create new item at dest
+                    const newItem: InventoryItem = {
+                        ...item,
+                        id: generateId(),
+                        locations: [dest],
+                        updatedAt: Date.now()
+                    };
+                    onInventoryChange('ADD', newItem, item.quantity);
+                } else {
+                    // MOVE: Update location
+                    const updatedItem = { ...item, locations: [dest], updatedAt: Date.now() };
+                    onInventoryChange('MOVE', updatedItem, 0, { previousLocation: item.locations[0] });
+                }
             }
         };
 
         if (existingDestItem) {
             showConfirm(
-                "Merge with Existing Item?",
-                `Destination bin already contains ${item.productName}. Merge ${qtyToMove} units into it?`,
+                isCopy ? "Merge & Copy?" : "Merge with Existing Item?",
+                `Destination bin already contains ${item.productName}. ${isCopy ? 'Copy' : 'Merge'} ${qtyToMove} units into it?`,
                 performMove,
                 'confirm'
             );
@@ -527,7 +586,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                 </div>
 
                                 {/* Multi-Rack Grid */}
-                                <div className="flex overflow-x-auto pb-4 px-2">
+                                <div className="flex overflow-x-auto pb-4 pt-2 px-2">
                                     {[...STANDARD_RACKS].reverse().map((rack, index) => {
                                         // Layout Logic:
                                         // Floor: J (gap) H,G (gap) F,E (gap) D,C (gap) B,A (gap at 0, 2, 4, 6)
@@ -662,7 +721,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                             // DEFAULT LAYOUT FOR OTHER AREAS (STG, ADJ)
                             <>
                                 {/* Multi-Rack Grid Style for S, R, Z */}
-                                <div className="flex gap-4 overflow-x-auto pb-4 px-2">
+                                <div className="flex gap-4 overflow-x-auto pb-4 pt-2 px-2">
                                     {Array.from({ length: currentBays }, (_, i) => i + 1).map(bay => (
                                         <div key={bay} className="flex flex-col flex-none w-16">
                                             {/* Vertical Levels */}
