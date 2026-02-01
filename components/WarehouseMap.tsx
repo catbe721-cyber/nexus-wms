@@ -1,13 +1,13 @@
-import React, { useState, useMemo } from 'react';
-import { InventoryItem, InventoryLocation, STANDARD_RACKS, AREA_CONFIG, Product, generateId } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { InventoryItem, InventoryLocation, STANDARD_RACKS, AREA_CONFIG, Product, generateId, MasterLocation, BAYS_PER_RACK, LEVELS } from '../types';
 import { getCategoryColor, smartSearch } from '../utils';
-import { Package, Search, MapPin, Plus, Save, Trash2, X, Lock, ArrowRightLeft, Layers, ChevronRight, Copy } from 'lucide-react';
+import { Package, Search, MapPin, Plus, Save, Trash2, X, Lock, ArrowRightLeft, Layers, ChevronRight, Copy, Move, AlertTriangle, Check, Clipboard as ClipboardIcon } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
 
 interface WarehouseMapProps {
     inventory: InventoryItem[];
     products: Product[];
-    onInventoryChange: (action: 'ADD' | 'UPDATE' | 'DELETE' | 'MOVE', item: InventoryItem, qtyDiff?: number, moveContext?: any) => void;
+    onInventoryChange: (action: 'ADD' | 'UPDATE' | 'DELETE' | 'MOVE' | 'COUNT', item: InventoryItem, qtyDiff?: number, moveContext?: any) => void;
 }
 
 const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInventoryChange }) => {
@@ -47,6 +47,11 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
     const newItemInputRef = React.useRef<HTMLInputElement>(null);
     const [showDropdown, setShowDropdown] = useState(false);
 
+    // Cycle Count State
+    const [isCountModalOpen, setIsCountModalOpen] = useState(false);
+    const [countItem, setCountItem] = useState<InventoryItem | null>(null);
+    const [countQty, setCountQty] = useState('');
+
     // Filter products for dropdown
     const filteredProducts = useMemo(() => {
         if (!newItemCode) return [];
@@ -69,7 +74,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
             x: rect.right + 10, // Offset to right
             y: rect.top,
             items,
-            title: `Bin: ${rack}-${bay}-${level}`
+            title: `${rack}-${bay}-${level}`
         });
     };
 
@@ -178,6 +183,31 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
     }, [selectedLocation, selectedCellItems, canEdit]);
 
 
+
+    // -- Handlers --
+
+    const handleStartCount = (item: InventoryItem) => {
+        setCountItem(item);
+        setCountQty(''); // Blank for blind count
+        setIsCountModalOpen(true);
+    };
+
+    const handleSubmitCount = () => {
+        if (!countItem) return;
+        const actualQty = parseFloat(countQty);
+        if (isNaN(actualQty)) {
+            showAlert("Invalid Quantity", "Please enter a valid number for the actual quantity.");
+            return;
+        }
+
+        const diff = actualQty - countItem.quantity;
+
+        onInventoryChange('COUNT', { ...countItem, quantity: actualQty }, diff);
+
+        setIsCountModalOpen(false);
+        setCountItem(null);
+        setCountQty('');
+    };
 
     // Actions
     const handleAddItem = () => {
@@ -632,7 +662,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                                                     <span className="text-[10px] font-bold absolute left-1 top-1/2 -translate-y-1/2 opacity-30 pointer-events-none">{bay}</span>
 
                                                                     {hasItems ? (
-                                                                        <div className="flex flex-col items-center ml-2">
+                                                                        <div className="flex flex-col items-center ml-2 transition-transform duration-200 group-hover:scale-125">
                                                                             <Package className="w-3 h-3 text-primary" />
                                                                             <span className="text-[10px] font-bold leading-none text-white">{items.length}</span>
                                                                         </div>
@@ -704,7 +734,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                                      `}
                                                 >
                                                     {hasItems ? (
-                                                        <div className="flex flex-col items-center">
+                                                        <div className="flex flex-col items-center transition-transform duration-200 group-hover:scale-125">
                                                             <Package className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-primary'}`} />
                                                             <span className={`text-[10px] font-bold leading-none ${isSelected ? 'text-white' : 'text-primary-100'}`}>{items.length}</span>
                                                         </div>
@@ -757,7 +787,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
 
                                                             {/* Content */}
                                                             {hasItems ? (
-                                                                <div className="flex flex-col items-center ml-2">
+                                                                <div className="flex flex-col items-center ml-2 transition-transform duration-200 group-hover:scale-125">
                                                                     <Package className="w-3 h-3 text-primary" />
                                                                     <span className="text-[10px] font-bold leading-none text-white">{items.length}</span>
                                                                 </div>
@@ -782,8 +812,8 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                 </div>
 
                 <div className="mt-4 flex gap-4 text-sm text-slate-500">
-                    <div className="flex items-center gap-2"><div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div> Occupied</div>
-                    <div className="flex items-center gap-2"><div className="w-4 h-4 bg-white border border-slate-300 rounded"></div> Empty</div>
+                    <div className="flex items-center gap-2"><div className="w-4 h-4 bg-primary/20 border border-primary/30 rounded"></div> Occupied</div>
+                    <div className="flex items-center gap-2"><div className="w-4 h-4 bg-white/5 border border-white/10 rounded"></div> Empty</div>
                     <div className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-primary rounded"></div> Selected</div>
                     <div className="flex items-center gap-2 text-slate-400 text-xs ml-auto">
                         {selectedRack === 'ALL'
@@ -942,6 +972,13 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                                             >
                                                                 Adjust
                                                             </button>
+                                                            <button
+                                                                onClick={() => handleStartCount(item)}
+                                                                className="p-1.5 bg-blue-900/20 text-blue-400 rounded hover:bg-blue-900/40 hover:text-blue-300 border border-blue-900/30 transition-colors"
+                                                                title="Cycle Count"
+                                                            >
+                                                                <ClipboardIcon className="w-4 h-4" />
+                                                            </button>
                                                             <button onClick={() => handleDeleteItem(item)} className="p-1.5 bg-red-900/20 text-red-400 rounded hover:bg-red-900/40 hover:text-red-300 border border-red-900/30 transition-colors">
                                                                 <Trash2 className="w-4 h-4" />
                                                             </button>
@@ -1039,24 +1076,63 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                 )}
             </div>
 
+            {/* Count Modal */}
+            {isCountModalOpen && countItem && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-slate-900 border border-white/10 rounded-xl shadow-2xl max-w-sm w-full p-6">
+                        <h3 className="text-lg font-bold text-white mb-4">Cycle Count</h3>
+                        <div className="mb-4">
+                            <label className="block text-xs uppercase text-slate-400 font-bold mb-1">Item</label>
+                            <div className="text-slate-200">{countItem.productName}</div>
+                        </div>
+                        <div className="mb-6">
+                            <label className="block text-xs uppercase text-slate-400 font-bold mb-1">Actual Quantity</label>
+                            <input
+                                type="number"
+                                autoFocus
+                                value={countQty}
+                                onChange={(e) => setCountQty(e.target.value)}
+                                className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-white focus:ring-2 focus:ring-primary outline-none font-mono text-lg"
+                                placeholder="Enter qty..."
+                            />
+                        </div>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setIsCountModalOpen(false)}
+                                className="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSubmitCount}
+                                disabled={!countQty}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Verify Count
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Global Floating Tooltip */}
             {tooltipData && (
                 <div
-                    className="fixed z-[100] bg-slate-900/95 backdrop-blur text-white text-xs p-3 rounded border border-white/20 shadow-xl pointer-events-none w-48"
+                    className="fixed z-[100] bg-slate-900/95 backdrop-blur text-white text-sm p-3 rounded border border-white/20 shadow-xl pointer-events-none w-64"
                     style={{
                         left: tooltipData.x,
                         top: tooltipData.y,
                         transform: 'translateY(-50%)', // Center vertically relative to mouse/trigger
                     }}
                 >
-                    <div className="font-bold text-amber-500 border-b border-white/10 pb-1 mb-2">
+                    <div className="font-bold text-amber-500 border-b border-white/10 pb-1 mb-2 text-base">
                         {tooltipData.title}
                     </div>
                     {tooltipData.items.length > 0 ? (
                         tooltipData.items.map((item, idx) => (
                             <div key={item.id || idx} className="mb-2 last:mb-0 border-b border-white/5 last:border-0 pb-1 last:pb-0">
-                                <div className="font-medium text-white truncate text-xs mb-0.5" title={item.productName}>{item.productName}</div>
-                                <div className="text-slate-400 flex justify-between items-center text-[10px] font-mono">
+                                <div className="font-medium text-white text-sm mb-0.5 whitespace-normal leading-tight" title={item.productName}>{item.productName}</div>
+                                <div className="text-slate-400 flex justify-between items-center text-xs font-mono">
                                     <span>Qty: <span className="text-primary-300">{item.quantity}</span> {item.unit}</span>
                                 </div>
                             </div>

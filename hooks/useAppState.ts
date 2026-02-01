@@ -230,7 +230,7 @@ export function useAppState() {
 
     // -- Helpers --
     const logTransaction = (
-        type: 'INBOUND' | 'OUTBOUND' | 'ADJUSTMENT',
+        type: 'INBOUND' | 'OUTBOUND' | 'ADJUSTMENT' | 'MOVE' | 'DELETE' | 'COUNT',
         item: InventoryItem,
         qty: number,
         locationOverride?: string
@@ -298,7 +298,7 @@ export function useAppState() {
             // Update state first to feel responsive
             setInventory(prev => prev.filter(i => i.id !== id));
             // Then log
-            logTransaction('ADJUSTMENT', item, -item.quantity, 'Deleted Record');
+            logTransaction('DELETE', item, -item.quantity, 'Deleted Record');
         }
     };
 
@@ -352,7 +352,7 @@ export function useAppState() {
         setTransactions(prev => [...newTransactions, ...prev]);
     };
 
-    const handleMapInventoryChange = (action: 'ADD' | 'UPDATE' | 'DELETE' | 'MOVE', item: InventoryItem, qtyDiff?: number, moveContext?: any) => {
+    const handleMapInventoryChange = (action: 'ADD' | 'UPDATE' | 'DELETE' | 'MOVE' | 'COUNT', item: InventoryItem, qtyDiff?: number, moveContext?: any) => {
         if (action === 'ADD') {
             setInventory(prev => [item, ...prev]);
             logTransaction('INBOUND', item, item.quantity, 'Map Direct Add');
@@ -366,14 +366,25 @@ export function useAppState() {
         } else if (action === 'DELETE') {
             setInventory(prev => prev.filter(i => i.id !== item.id));
             // Log explicitly with negative quantity of the item
-            logTransaction('ADJUSTMENT', item, -item.quantity, 'Map Direct Removal');
+            logTransaction('DELETE', item, -item.quantity, 'Map Direct Removal');
         } else if (action === 'MOVE') {
             // Move logic: Update item location
             setInventory(prev => prev.map(i => i.id === item.id ? item : i));
             // Log move
             const fromLoc = moveContext?.previousLocation ? `${moveContext.previousLocation.rack}-${moveContext.previousLocation.bay}-${moveContext.previousLocation.level}` : 'Unknown';
             const toLoc = item.locations[0] ? `${item.locations[0].rack}-${item.locations[0].bay}-${item.locations[0].level}` : 'Unknown';
-            logTransaction('ADJUSTMENT', item, 0, `Moved: ${fromLoc} -> ${toLoc}`);
+            logTransaction('MOVE', item, 0, `Moved: ${fromLoc} -> ${toLoc}`);
+        } else if (action === 'COUNT') {
+            // Update lastCountedAt
+            setInventory(prev => prev.map(i => i.id === item.id ? { ...item, lastCountedAt: Date.now() } : i));
+
+            if (qtyDiff && qtyDiff !== 0) {
+                // Variance found -> Log as Adjustment (or could differ based on pref)
+                logTransaction('ADJUSTMENT', item, qtyDiff, 'Cycle Count Variance');
+            } else {
+                // Perfect match
+                logTransaction('COUNT', item, 0, 'Cycle Count Verified');
+            }
         }
     };
 
@@ -457,7 +468,7 @@ export function useAppState() {
 
         const sourceLocString = `${sourceItem.locations[0].rack}-${sourceItem.locations[0].bay}-${sourceItem.locations[0].level}`;
         const destLocString = `${destLoc.rack}-${destLoc.bay}-${destLoc.level}`;
-        logTransaction('ADJUSTMENT', sourceItem, 0, `Moved ${qty} ${sourceItem.unit} from ${sourceLocString} to ${destLocString}`);
+        logTransaction('MOVE', sourceItem, 0, `Moved ${qty} ${sourceItem.unit} from ${sourceLocString} to ${destLocString}`);
     };
 
     // Aggregation Logic for Dashboard

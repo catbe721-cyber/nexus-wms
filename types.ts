@@ -35,12 +35,13 @@ export interface InventoryItem {
   locations: InventoryLocation[];
   notes?: string;
   updatedAt: number;
+  lastCountedAt?: number; // Cycle Count Timestamp
 }
 
 export interface Transaction {
   id: string;
   date: number;
-  type: 'INBOUND' | 'OUTBOUND' | 'ADJUSTMENT';
+  type: 'INBOUND' | 'OUTBOUND' | 'ADJUSTMENT' | 'MOVE' | 'DELETE' | 'COUNT';
   productCode: string;
   productName: string;
   category: string;

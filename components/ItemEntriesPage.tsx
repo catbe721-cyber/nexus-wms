@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction } from '../types';
-import { ClipboardList, ArrowDownLeft, ArrowUpRight, RefreshCw, Search } from 'lucide-react';
+import { ClipboardList, ArrowDownLeft, ArrowUpRight, RefreshCw, Search, Filter, X, ArrowRightLeft, Trash2, ClipboardCheck } from 'lucide-react';
+
+const TRANSACTION_TYPES = ['INBOUND', 'OUTBOUND', 'MOVE', 'ADJUSTMENT', 'DELETE', 'COUNT'];
 
 interface ItemEntriesPageProps {
     transactions: Transaction[];
@@ -8,6 +10,15 @@ interface ItemEntriesPageProps {
 
 const ItemEntriesPage: React.FC<ItemEntriesPageProps> = ({ transactions }) => {
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+
+    const toggleType = (type: string) => {
+        setSelectedTypes(prev =>
+            prev.includes(type)
+                ? prev.filter(t => t !== type)
+                : [...prev, type]
+        );
+    };
 
     // Calculate balances based on full history to ensure accuracy before filtering
     const transactionsWithBalance = useMemo(() => {
@@ -30,16 +41,24 @@ const ItemEntriesPage: React.FC<ItemEntriesPageProps> = ({ transactions }) => {
     }, [transactions]);
 
     // Filter and Sort for Display (Newest first)
-    const filteredTransactions = transactionsWithBalance.filter(t =>
-        t.productCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.type.toLowerCase().includes(searchTerm.toLowerCase())
-    ).sort((a, b) => b.date - a.date);
+    const filteredTransactions = transactionsWithBalance.filter(t => {
+        const matchesSearch =
+            t.productCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            t.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            t.type.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const matchesType = selectedTypes.length === 0 || selectedTypes.includes(t.type);
+
+        return matchesSearch && matchesType;
+    }).sort((a, b) => b.date - a.date);
 
     const getTypeStyle = (type: string) => {
         switch (type) {
             case 'INBOUND': return 'bg-green-500/20 text-green-400 border-green-500/30';
             case 'OUTBOUND': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
+            case 'MOVE': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
+            case 'DELETE': return 'bg-red-500/20 text-red-400 border-red-500/30';
+            case 'COUNT': return 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30';
             case 'ADJUSTMENT': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
             default: return 'bg-slate-800 text-slate-400 border-white/5';
         }
@@ -49,6 +68,9 @@ const ItemEntriesPage: React.FC<ItemEntriesPageProps> = ({ transactions }) => {
         switch (type) {
             case 'INBOUND': return <ArrowDownLeft className="w-4 h-4" />;
             case 'OUTBOUND': return <ArrowUpRight className="w-4 h-4" />;
+            case 'MOVE': return <ArrowRightLeft className="w-4 h-4" />;
+            case 'DELETE': return <Trash2 className="w-4 h-4" />;
+            case 'COUNT': return <ClipboardCheck className="w-4 h-4" />;
             default: return <RefreshCw className="w-4 h-4" />;
         }
     };
@@ -68,15 +90,57 @@ const ItemEntriesPage: React.FC<ItemEntriesPageProps> = ({ transactions }) => {
                     </div>
                 </div>
 
-                <div className="relative max-w-md">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-5 h-5" />
-                    <input
-                        type="text"
-                        placeholder="Filter by product, type..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-white/10 bg-black/40 rounded-lg text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-primary focus:border-primary outline-none"
-                    />
+                <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                    {/* Type Slicer */}
+                    <div className="flex flex-wrap gap-2">
+                        {TRANSACTION_TYPES.map(type => {
+                            const isSelected = selectedTypes.includes(type);
+                            // Determine active color style based on type
+                            let activeClass = 'bg-primary text-black border-primary font-bold shadow-[0_0_10px_rgba(139,92,246,0.5)]'; // Default
+                            if (isSelected) {
+                                if (type === 'INBOUND') activeClass = 'bg-green-500 text-black border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]';
+                                if (type === 'OUTBOUND') activeClass = 'bg-orange-500 text-black border-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.5)]';
+                                if (type === 'MOVE') activeClass = 'bg-purple-500 text-white border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]';
+                                if (type === 'DELETE') activeClass = 'bg-red-500 text-white border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]';
+                                if (type === 'COUNT') activeClass = 'bg-cyan-500 text-white border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]';
+                            }
+
+                            return (
+                                <button
+                                    key={type}
+                                    onClick={() => toggleType(type)}
+                                    className={`
+                                        px-3 py-1.5 rounded-full text-xs font-medium transition-all border
+                                        ${isSelected
+                                            ? activeClass
+                                            : 'bg-slate-800 text-slate-400 border-white/5 hover:bg-slate-700 hover:text-white'
+                                        }
+                                    `}
+                                >
+                                    {type}
+                                </button>
+                            );
+                        })}
+                        {selectedTypes.length > 0 && (
+                            <button
+                                onClick={() => setSelectedTypes([])}
+                                className="px-3 py-1.5 rounded-full text-xs font-medium transition-all text-slate-500 hover:text-white flex items-center gap-1"
+                            >
+                                <X className="w-3 h-3" /> Clear
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="relative w-full md:w-64">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" />
+                        <input
+                            type="text"
+                            placeholder="Search..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 text-sm border border-white/10 bg-black/40 rounded-lg text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+                        />
+                    </div>
                 </div>
             </div>
 
