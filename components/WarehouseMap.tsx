@@ -954,8 +954,15 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                                         </div>
                                                     </div>
 
+                                                    {item.lastCountedAt && (
+                                                        <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-white/5 text-[10px] text-cyan-400 font-mono">
+                                                            <ClipboardIcon className="w-3 h-3" />
+                                                            <span>Verified: {new Date(item.lastCountedAt).toLocaleDateString()} {new Date(item.lastCountedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                        </div>
+                                                    )}
+
                                                     {canEdit && !editingItemId && !movingItemId && !copyingItemId && (
-                                                        <div className="flex gap-2 mt-3 pt-3 border-t border-white/5">
+                                                        <div className={`flex gap-2 ${item.lastCountedAt ? 'mt-3' : 'mt-3 pt-3 border-t border-white/5'}`}>
                                                             <button onClick={() => setMovingItemId(item.id)} className="flex-1 flex items-center justify-center gap-1 bg-slate-800 text-slate-300 py-1.5 rounded hover:bg-slate-700 hover:text-white border border-white/5 text-[10px] font-bold transition-colors">
                                                                 <ArrowRightLeft className="w-3 h-3" /> Move
                                                             </button>

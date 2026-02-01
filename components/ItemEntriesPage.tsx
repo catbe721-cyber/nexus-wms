@@ -11,6 +11,8 @@ interface ItemEntriesPageProps {
 const ItemEntriesPage: React.FC<ItemEntriesPageProps> = ({ transactions }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
 
     const toggleType = (type: string) => {
         setSelectedTypes(prev =>
@@ -49,7 +51,19 @@ const ItemEntriesPage: React.FC<ItemEntriesPageProps> = ({ transactions }) => {
 
         const matchesType = selectedTypes.length === 0 || selectedTypes.includes(t.type);
 
-        return matchesSearch && matchesType;
+        let matchesDate = true;
+        if (startDate) {
+            const [y, m, d] = startDate.split('-').map(Number);
+            const start = new Date(y, m - 1, d).setHours(0, 0, 0, 0);
+            if (t.date < start) matchesDate = false;
+        }
+        if (endDate && matchesDate) {
+            const [y, m, d] = endDate.split('-').map(Number);
+            const end = new Date(y, m - 1, d).setHours(23, 59, 59, 999);
+            if (t.date > end) matchesDate = false;
+        }
+
+        return matchesSearch && matchesType && matchesDate;
     }).sort((a, b) => b.date - a.date);
 
     const getTypeStyle = (type: string) => {
@@ -131,15 +145,51 @@ const ItemEntriesPage: React.FC<ItemEntriesPageProps> = ({ transactions }) => {
                         )}
                     </div>
 
-                    <div className="relative w-full md:w-64">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" />
-                        <input
-                            type="text"
-                            placeholder="Search..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 text-sm border border-white/10 bg-black/40 rounded-lg text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-primary focus:border-primary outline-none"
-                        />
+                    <div className="flex flex-col md:flex-row gap-4 items-center">
+                        <div className="relative w-full md:w-64">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" />
+                            <input
+                                type="text"
+                                placeholder="Search history..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2 text-sm border border-white/10 bg-black/40 rounded-lg text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+                            />
+                        </div>
+
+                        {/* Date Range Inputs */}
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className="bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:border-primary outline-none"
+                                placeholder="Start Date"
+                            />
+                            <span className="text-slate-500">-</span>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                className="bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:border-primary outline-none"
+                                placeholder="End Date"
+                            />
+                        </div>
+
+                        {(searchTerm || selectedTypes.length > 0 || startDate || endDate) && (
+                            <button
+                                onClick={() => {
+                                    setSearchTerm('');
+                                    setSelectedTypes([]);
+                                    setStartDate('');
+                                    setEndDate('');
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-white transition-colors"
+                                title="Clear Filters"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
