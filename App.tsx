@@ -64,6 +64,7 @@ function App() {
     lowStockItems,
     topMovers,
     deadStock,
+    gasConfig,
     actions
   } = useAppState();
 
@@ -248,6 +249,7 @@ function App() {
               <DashboardPage
                 inventory={inventory}
                 inventorySummary={inventorySummary}
+                products={products}
                 lowStockItems={lowStockItems}
                 topMovers={topMovers}
                 deadStock={deadStock}
@@ -328,6 +330,7 @@ function App() {
               <ProductPage
                 products={products}
                 onUpdateProducts={handleUpdateProducts}
+                gasUrl={gasConfig.url}
               />
             )
           }

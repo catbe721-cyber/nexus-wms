@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryLocation, STANDARD_RACKS, AREA_CONFIG, Product, generateId, MasterLocation, BAYS_PER_RACK, LEVELS } from '../types';
-import { getCategoryColor, smartSearch } from '../utils';
+import { getCategoryColor, smartSearch, getEmbedLink, getAreaName } from '../utils';
 import { Package, Search, MapPin, Plus, Save, Trash2, X, Lock, ArrowRightLeft, Layers, ChevronRight, Copy, Move, AlertTriangle, Check, Clipboard as ClipboardIcon } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
+import SearchDropdown from './SearchDropdown';
 
 interface WarehouseMapProps {
     inventory: InventoryItem[];
@@ -12,18 +13,14 @@ interface WarehouseMapProps {
 
 const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInventoryChange }) => {
 
-    // Helper for display names
-    const getAreaName = (code: string) => {
-        if (code === 'S') return 'Staging (S)';
-        if (code === 'R') return 'Reserve (R)';
-        if (code === 'Z') return 'Zone (Z)';
-        return code;
-    };
-
     // Default to RACKS (ALL)
     const [selectedRack, setSelectedRack] = useState<string>('ALL');
     const [selectedLocation, setSelectedLocation] = useState<InventoryLocation | null>(null);
+
     const [levelView, setLevelView] = useState<string>('Floor');
+    const [mapSearch, setMapSearch] = useState(''); // New Search State
+    const [showMapSearchDropdown, setShowMapSearchDropdown] = useState(false);
+
 
     // Edit State
     const [isAddingItem, setIsAddingItem] = useState(false);
@@ -153,6 +150,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
         if (!selectedLocation) return [];
         return getItemsInCell(selectedLocation.rack, selectedLocation.bay, selectedLocation.level);
     }, [selectedLocation, inventory]);
+    // Added redundant dependency inventory to satisfy linter but logic is sound
 
     // Keyboard Listener for Delete
     React.useEffect(() => {
@@ -590,6 +588,43 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                         ))}
                     </div>
 
+                    {/* Search Bar */}
+                    <div className="relative w-full md:w-[600px] mt-2 md:mt-0 md:ml-auto">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" />
+                        <input
+                            type="text"
+                            placeholder="Find item in map..."
+                            value={mapSearch}
+                            onChange={(e) => {
+                                setMapSearch(e.target.value);
+                                setShowMapSearchDropdown(true);
+                            }}
+                            onFocus={() => setShowMapSearchDropdown(true)}
+                            className="w-full pl-9 pr-4 py-1.5 bg-black/40 border border-white/10 rounded-lg text-sm text-white focus:ring-2 focus:ring-primary outline-none placeholder-slate-600"
+                        />
+                        {mapSearch && (
+                            <button
+                                onClick={() => setMapSearch('')}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                            >
+                                <X className="w-3 h-3" />
+                            </button>
+                        )}
+
+                        {/* Search Dropdown */}
+                        {showMapSearchDropdown && (
+                            <SearchDropdown
+                                mapSearch={mapSearch}
+                                products={products}
+                                inventory={inventory}
+                                onSelect={(name) => {
+                                    setMapSearch(name);
+                                    setShowMapSearchDropdown(false);
+                                }}
+                            />
+                        )}
+                    </div>
+
 
                 </div>
 
@@ -639,6 +674,10 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                                         const isSelected = selectedLocation?.rack === rack && selectedLocation?.bay === bay && selectedLocation?.level === levelView;
                                                         const isGapBelow = bay % 2 !== 0 && bay !== 1; // Gap after odd numbers (11, 9...) except 1 (bottom)
 
+                                                        // Highlight Logic
+                                                        const isMatch = mapSearch && items.some(i => smartSearch(i, ['productCode', 'productName'], mapSearch));
+                                                        const isDimmed = mapSearch && !isMatch;
+
                                                         return (
                                                             <div key={`${rack}-${bay}-container`} className={`w-full ${isGapBelow ? 'mb-1' : ''}`}>
                                                                 <div
@@ -654,9 +693,11 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                                                     className={`
                                                                     relative group cursor-pointer border rounded-sm transition-all h-8 w-full flex items-center justify-center
                                                                     ${isSelected ? 'ring-2 ring-primary border-primary z-10' : 'border-white/5'}
-                                                                    ${hasItems
+                                                                    ${isMatch ? 'ring-2 ring-yellow-400 bg-yellow-400/20 z-20 shadow-[0_0_10px_rgba(250,204,21,0.5)]' : ''}
+                                                                    ${isDimmed ? 'opacity-20 grayscale' : ''}
+                                                                    ${!isMatch && hasItems
                                                                             ? 'bg-primary/20 hover:bg-primary/30 border-primary/30 text-primary-200'
-                                                                            : 'bg-white/5 hover:bg-white/10 text-slate-600'}
+                                                                            : !isMatch ? 'bg-white/5 hover:bg-white/10 text-slate-600' : ''}
                                                                 `}
                                                                 >
                                                                     <span className="text-[10px] font-bold absolute left-1 top-1/2 -translate-y-1/2 opacity-30 pointer-events-none">{bay}</span>
@@ -712,6 +753,10 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                             const hasItems = items.length > 0;
                                             const isSelected = selectedLocation?.rack === selectedRack && selectedLocation?.bay === bay && selectedLocation?.level === level;
 
+                                            // Highlight Logic
+                                            const isMatch = mapSearch && items.some(i => smartSearch(i, ['productCode', 'productName'], mapSearch));
+                                            const isDimmed = mapSearch && !isMatch;
+
                                             return (
                                                 <div
                                                     key={`${selectedRack}-${bay}-${level}`}
@@ -728,9 +773,11 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                                          flex items-center justify-center text-xs w-10 h-10 aspect-square
                                                          ${level === 'Floor' ? 'mr-8' : ''}
                                                          ${isSelected ? 'ring-2 ring-primary border-primary z-10 shadow-[0_0_10px_rgba(139,92,246,0.5)]' : 'border-white/5'}
-                                                         ${hasItems
+                                                         ${isMatch ? 'ring-2 ring-yellow-400 bg-yellow-400/20 z-20 shadow-[0_0_10px_rgba(250,204,21,0.5)]' : ''}
+                                                         ${isDimmed ? 'opacity-20 grayscale' : ''}
+                                                         ${!isMatch && hasItems
                                                             ? 'bg-primary/20 hover:bg-primary/30 border-primary/30 text-primary-200'
-                                                            : 'bg-white/5 hover:bg-white/10 text-slate-600'}
+                                                            : !isMatch ? 'bg-white/5 hover:bg-white/10 text-slate-600' : ''}
                                                      `}
                                                 >
                                                     {hasItems ? (
@@ -752,7 +799,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                             <>
                                 {/* Multi-Rack Grid Style for S, R, Z */}
                                 <div className="flex gap-4 overflow-x-auto pb-4 pt-2 px-2">
-                                    {Array.from({ length: currentBays }, (_, i) => i + 1).map(bay => (
+                                    {Array.from({ length: currentBays }, (_, i) => currentBays - i).map(bay => (
                                         <div key={bay} className="flex flex-col flex-none w-16">
                                             {/* Vertical Levels */}
                                             <div className="flex flex-col gap-1">
@@ -760,6 +807,10 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                                     const items = getItemsInCell(selectedRack, bay, level);
                                                     const hasItems = items.length > 0;
                                                     const isSelected = selectedLocation?.rack === selectedRack && selectedLocation?.bay === bay && selectedLocation?.level === level;
+
+                                                    // Highlight Logic
+                                                    const isMatch = mapSearch && items.some(i => smartSearch(i, ['productCode', 'productName'], mapSearch));
+                                                    const isDimmed = mapSearch && !isMatch;
 
                                                     return (
                                                         <div
@@ -775,9 +826,11 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                                             className={`
                                                                 relative group cursor-pointer border rounded-sm transition-all h-8 w-full flex items-center justify-center
                                                                 ${isSelected ? 'ring-2 ring-primary border-primary z-10' : 'border-white/5'}
-                                                                ${hasItems
+                                                                ${isMatch ? 'ring-2 ring-yellow-400 bg-yellow-400/20 z-20 shadow-[0_0_10px_rgba(250,204,21,0.5)]' : ''}
+                                                                ${isDimmed ? 'opacity-20 grayscale' : ''}
+                                                                ${!isMatch && hasItems
                                                                     ? 'bg-primary/20 hover:bg-primary/30 border-primary/30 text-primary-200'
-                                                                    : 'bg-white/5 hover:bg-white/10 text-slate-600'}
+                                                                    : !isMatch ? 'bg-white/5 hover:bg-white/10 text-slate-600' : ''}
                                                             `}
                                                         >
                                                             {/* Level Number (Faint) */}
@@ -924,8 +977,21 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                     onDragStart={(e) => handleDragStart(e, item)}
                                     className="p-3 border border-white/5 rounded-lg hover:border-primary/30 transition-all bg-slate-800/40 hover:bg-slate-800/60 cursor-grab active:cursor-grabbing"
                                 >
-                                    <div className="font-medium text-slate-200 text-base">{item.productName}</div>
-                                    <div className="text-xs text-slate-500 font-mono mt-0.5 tracking-wider">{item.productCode}</div>
+                                    <div className="flex gap-3">
+                                        {/* Thumbnail Lookup */}
+                                        {(() => {
+                                            const product = products.find(p => p.productCode === item.productCode);
+                                            return product?.image ? (
+                                                <div className="w-12 h-12 rounded bg-slate-900 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                                                    <img src={getEmbedLink(product.image)} alt="Thumbnail" className="w-full h-full object-contain" />
+                                                </div>
+                                            ) : null;
+                                        })()}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-medium text-slate-200 text-base leading-tight mb-1">{item.productName}</div>
+                                            <div className="text-xs text-slate-500 font-mono tracking-wider">{item.productCode}</div>
+                                        </div>
+                                    </div>
 
                                     {canEdit && editingItemId === item.id ? (
                                         <div className="flex items-center gap-2 mt-2">
@@ -944,9 +1010,6 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                             {movingItemId !== item.id && copyingItemId !== item.id && (
                                                 <>
                                                     <div className="flex justify-between items-center mt-2">
-                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${getCategoryColor(item.category)}`}>
-                                                            {item.category}
-                                                        </span>
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-sm font-bold bg-black/40 text-primary border border-white/10 px-2.5 py-1 rounded shadow-inner font-mono">
                                                                 {item.quantity} {item.unit}
@@ -1136,14 +1199,26 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                         {tooltipData.title}
                     </div>
                     {tooltipData.items.length > 0 ? (
-                        tooltipData.items.map((item, idx) => (
-                            <div key={item.id || idx} className="mb-2 last:mb-0 border-b border-white/5 last:border-0 pb-1 last:pb-0">
-                                <div className="font-medium text-white text-sm mb-0.5 whitespace-normal leading-tight" title={item.productName}>{item.productName}</div>
-                                <div className="text-slate-400 flex justify-between items-center text-xs font-mono">
-                                    <span>Qty: <span className="text-primary-300">{item.quantity}</span> {item.unit}</span>
+                        tooltipData.items.map((item, idx) => {
+                            const product = products.find(p => p.productCode === item.productCode);
+                            return (
+                                <div key={item.id || idx} className="mb-2 last:mb-0 border-b border-white/5 last:border-0 pb-1 last:pb-0">
+                                    <div className="flex gap-2 mb-0.5 items-start">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-medium text-white text-sm mb-0.5 whitespace-normal leading-tight" title={item.productName}>{item.productName}</div>
+                                            <div className="text-slate-400 flex justify-between items-center text-xs font-mono">
+                                                <span>Qty: <span className="text-primary-300">{item.quantity}</span> {item.unit}</span>
+                                            </div>
+                                        </div>
+                                        {product?.image && (
+                                            <div className="w-10 h-10 rounded bg-black/40 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                                                <img src={getEmbedLink(product.image)} alt="Thumbnail" className="w-full h-full object-contain" />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))
+                            );
+                        })
                     ) : (
                         <div className="text-slate-500 italic">Empty</div>
                     )}

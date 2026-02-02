@@ -1,12 +1,17 @@
-export const DEFAULT_ITEM_CATEGORIES = ['RTE', 'RAW', 'FG', 'WIP', 'PKG', 'OTH'] as const;
+export const DEFAULT_ITEM_CATEGORIES = [
+  'RTE', 'RAW', 'FG', 'WIP', 'PKG', 'OTH',
+  'Box', 'Film', 'Tray', 'Sushi', 'Tape', 'Wrap', 'Pallet'
+] as const;
 
 export interface Product {
   productCode: string; // Formerly id & code
   name: string;
   defaultCategory?: string;
-  postingGroup?: string;
   defaultUnit?: string;
   minStockLevel?: number;
+  image?: string;
+  department?: 'RTE' | 'RTC' | 'SHARED';
+  updatedAt?: number;
 }
 
 export interface InventoryLocation {

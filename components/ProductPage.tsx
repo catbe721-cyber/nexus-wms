@@ -2,26 +2,35 @@ import React, { useState, useRef, useMemo } from 'react';
 import { Product, generateId } from '../types';
 import { Plus, Upload, Trash2, Edit, Save, X, Search, Boxes, AlertTriangle } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
-import { smartSearch, getCategoryColor } from '../utils';
+import { smartSearch, getCategoryColor, getEmbedLink, parseCSV, normalizeProduct, generateCSV } from '../utils';
+import { GASService } from '../services/gasApi';
+import ImageThumbnail from './ImageThumbnail';
+// @ts-ignore
+// const API_URL = window.API_URL || '';
 
 interface ProductPageProps {
   products: Product[];
   onUpdateProducts: (products: Product[]) => void;
+  gasUrl?: string;
 }
 
-const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts }) => {
+const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, gasUrl }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const imageUploadRef = useRef<HTMLInputElement>(null);
 
   // Form State
   const [formData, setFormData] = useState<Partial<Product>>({
     code: '',
     name: '',
     defaultCategory: '',
-    postingGroup: '',
     defaultUnit: '',
-    minStockLevel: 0
+    minStockLevel: 0,
+    image: '',
+    department: 'SHARED',
+    updatedAt: Date.now()
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -44,46 +53,17 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
   };
 
   // Derive unique lists for autocomplete suggestions
-  const existingCategories = useMemo(() =>
-    Array.from(new Set(products.map(p => p.defaultCategory).filter(Boolean))) as string[],
-    [products]);
+  // Derive unique lists for autocomplete suggestions
+  const existingCategories = useMemo(() => {
+    const cats = new Set(products.map(p => p.defaultCategory).filter(Boolean));
+    // Add default categories to suggestions
+    ['Box', 'Film', 'Tray', 'Sushi', 'Tape', 'Wrap', 'Pallet'].forEach(c => cats.add(c));
+    return Array.from(cats).sort();
+  }, [products]);
 
   const existingUnits = useMemo(() =>
     Array.from(new Set(products.map(p => p.defaultUnit).filter(Boolean))) as string[],
     [products]);
-
-  // --- CSV Logic ---
-  const parseCSVLine = (text: string) => {
-    const lines = text.split('\n');
-    const result: string[][] = [];
-
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      const row: string[] = [];
-      let current = '';
-      let inQuotes = false;
-
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '"') {
-          if (inQuotes && line[i + 1] === '"') {
-            current += '"';
-            i++;
-          } else {
-            inQuotes = !inQuotes;
-          }
-        } else if (char === ',' && !inQuotes) {
-          row.push(current.trim());
-          current = '';
-        } else {
-          current += char;
-        }
-      }
-      row.push(current.trim());
-      if (row.length > 1) result.push(row);
-    }
-    return result;
-  };
 
   const handleProductUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -92,9 +72,11 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
       reader.onload = (evt) => {
         try {
           const text = evt.target?.result as string;
-          const rows = parseCSVLine(text);
+          const rows = parseCSV(text);
 
           const newProducts: Product[] = [];
+          // Create a mutable copy of products for updates
+          const currentProducts = [...products];
 
           const startIndex = rows[0]?.[0]?.toLowerCase().includes('no.') ? 1 : 0;
 
@@ -104,34 +86,64 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
 
             const code = row[0];
             const name = row[1];
+            // Format: Code, Name, Category, Department, Unit, MinStock, ImageUrl
 
-            // Check against existing products by productCode
-            const existing = products.find(p => p.productCode === code);
+            if (code && name) {
+              // Check if exists
+              const existingIdx = currentProducts.findIndex(p => p.productCode === code);
 
-            if (code && name && !existing) {
-              newProducts.push({
+              const productData: Product = {
                 productCode: code,
-                name,
-                defaultCategory: row[4] || 'OTH',
-                postingGroup: row[5] || '',
-                defaultUnit: row[7] || 'pcs',
-                minStockLevel: 0
-              });
+                name: name,
+                defaultCategory: row[2] || 'OTH',
+                department: (row[3] as any) || 'SHARED',
+                defaultUnit: row[4] || 'pcs',
+                minStockLevel: parseInt(row[5]) || 0,
+                image: row[6] || '',
+                updatedAt: Date.now()
+              };
+
+              if (existingIdx !== -1) {
+                // Update existing (CSV overrides)
+                // We do NOT use normalizeProduct here as user might have manually fixed CSV
+                currentProducts[existingIdx] = { ...currentProducts[existingIdx], ...productData };
+              } else {
+                // Add new
+                newProducts.push(productData);
+              }
             }
           }
 
-          if (newProducts.length > 0) {
-            onUpdateProducts([...products, ...newProducts]);
-            showAlert("Success", `Successfully processed ${newProducts.length} new products.`);
-          } else {
-            showAlert("Info", "No new products found in file.");
-          }
+          // Merge updates and new products
+          onUpdateProducts([...currentProducts, ...newProducts]);
+          showAlert("Success", `Processed file. Updated existing and added ${newProducts.length} new products.`);
         } catch (err) {
           console.error(err);
           showAlert("Error", 'Failed to parse file. Please ensure standard CSV format.');
         }
       };
       reader.readAsText(file);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!gasUrl) {
+      showAlert("Configuration Error", "API URL is not configured. Please check Dashboard settings.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const imageUrl = await GASService.uploadImage(gasUrl, file);
+      setFormData(prev => ({ ...prev, image: imageUrl }));
+    } catch (error: any) {
+      console.error(error);
+      showAlert("Upload Failed", error.message || "Failed to upload image");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -148,11 +160,39 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
         defaultCategory: '',
         postingGroup: '',
         defaultUnit: '',
-        minStockLevel: 0
+        minStockLevel: 0,
+        image: '',
+        department: 'SHARED',
+        updatedAt: Date.now()
       });
     }
     setIsModalOpen(true);
   };
+
+  const handleExportCSV = () => {
+    const headers = ['Code', 'Name', 'Category', 'Department', 'Unit', 'MinStock', 'ImageUrl'];
+    const data = products.map(p => [
+      p.productCode,
+      p.name,
+      p.defaultCategory || '',
+      p.department || 'SHARED',
+      p.defaultUnit || '',
+      p.minStockLevel || 0,
+      p.image || ''
+    ]);
+
+    const csvContent = generateCSV(headers, data);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `products_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
 
   const handleDelete = (code: string) => {
     showConfirm(
@@ -178,12 +218,23 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
     }
 
     if (editingProduct) {
+      // Check if image has changed or was removed
+      if (editingProduct.image && editingProduct.image !== formData.image) {
+        if (gasUrl) {
+          GASService.deleteImage(gasUrl, editingProduct.image)
+            .then(success => {
+              if (success) console.log('Old image deleted from Drive');
+            });
+        }
+      }
+
       // Update
-      const updatedList = products.map(p => p.productCode === editingProduct.productCode ? { ...formData } as Product : p);
+      // normalizeProduct removed to respect manual edits
+      const updatedList = products.map(p => p.productCode === editingProduct.productCode ? { ...formData, updatedAt: Date.now() } as Product : p);
       onUpdateProducts(updatedList);
     } else {
-      // Create
-      const newProduct = { ...formData } as Product;
+      // Create - Keep normalize logic for new manual creations as a helper
+      const newProduct = { ...formData, updatedAt: Date.now() } as Product;
       onUpdateProducts([...products, newProduct]);
     }
     setIsModalOpen(false);
@@ -195,6 +246,10 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
   const filteredProducts = products.filter(p =>
     smartSearch(p, ['productCode', 'name'], searchTerm)
   );
+
+  // Floating Tooltip State
+  // Refactored to use ImageThumbnail component
+
 
   return (
     <div className="space-y-6">
@@ -209,6 +264,13 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
             <p className="text-sm text-slate-400">Manage your product catalog. Set Categories and Units here.</p>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={handleExportCSV}
+              className="px-4 py-2 border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+              title="Export to CSV"
+            >
+              <Upload className="w-4 h-4 rotate-180" /> Export CSV
+            </button>
             <button
               onClick={() => fileInputRef.current?.click()}
               className="px-4 py-2 border border-white/10 rounded-lg text-slate-400 hover:bg-white/5 hover:text-white flex items-center gap-2 text-sm font-bold transition-colors"
@@ -245,31 +307,43 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
           <table className="w-full text-left text-sm">
             <thead className="bg-black/40 sticky top-0 z-10 backdrop-blur-md border-b border-white/10">
               <tr>
-                <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">No.</th>
-                <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Description</th>
+                <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs w-16">Image</th>
+                <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Code</th>
+                <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Name</th>
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Category</th>
+                <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Dept</th>
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Unit</th>
-                <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Min Stock (Alert)</th>
+                <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Updated</th>
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {filteredProducts.map(p => (
                 <tr key={p.productCode} className="hover:bg-white/5 transition-colors group">
-                  <td className="px-6 py-3 font-mono text-slate-500 font-medium tracking-wide">{p.productCode}</td>
-                  <td className="px-6 py-3 text-slate-200">{p.name}</td>
                   <td className="px-6 py-3">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${getCategoryColor(p.defaultCategory || '')}`}>
+                    {p.image ? (
+                      <ImageThumbnail src={p.image} alt={p.name} />
+                    ) : (
+                      <div className="w-10 h-10 rounded bg-slate-800/50 border border-white/5 flex items-center justify-center">
+                        <Boxes className="w-4 h-4 text-slate-600" />
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-3 text-slate-300 font-mono text-xs">{p.productCode}</td>
+                  <td className="px-6 py-3 text-slate-200 font-bold">{p.name}</td>
+                  <td className="px-6 py-3">
+                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide border ${getCategoryColor(p.defaultCategory || '')}`}>
                       {p.defaultCategory || '-'}
                     </span>
                   </td>
-                  <td className="px-6 py-3 text-slate-500 font-mono text-xs">{p.defaultUnit || '-'}</td>
                   <td className="px-6 py-3">
-                    {p.minStockLevel && p.minStockLevel > 0 ? (
-                      <span className="text-orange-400 font-bold font-mono">{p.minStockLevel}</span>
-                    ) : (
-                      <span className="text-slate-600">-</span>
-                    )}
+                    <span className={`px-2 py-1 rounded text-[10px] font-bold border ${p.department === 'RTE' ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' : p.department === 'RTC' ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' : 'bg-slate-700/50 text-slate-500 border-white/5'}`}>
+                      {p.department || 'SHARED'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-3 text-slate-400 text-xs">{p.defaultUnit || 'pcs'}</td>
+                  <td className="px-6 py-3 text-slate-500 text-xs font-mono">
+                    {p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : '-'}
                   </td>
                   <td className="px-6 py-3 text-right">
                     <div className="flex justify-end gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
@@ -295,7 +369,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
               ))}
               {filteredProducts.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-10 text-center text-slate-500">
+                  <td colSpan={8} className="p-10 text-center text-slate-500">
                     No products found. Add one or adjust search.
                   </td>
                 </tr>
@@ -319,6 +393,58 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
             </div>
 
             <form onSubmit={handleSave} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-sm font-bold text-slate-400 mb-1 uppercase tracking-wider">Product Image</label>
+                  <div className="flex items-center gap-4 p-4 border border-white/10 rounded-lg bg-black/20">
+                    {formData.image ? (
+                      <div className="relative group w-24 h-24">
+                        <ImageThumbnail src={formData.image} alt="Preview" className="w-24 h-24" />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFormData({ ...formData, image: '' });
+                          }}
+                          className="absolute top-1 right-1 z-10 bg-red-500/80 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-24 h-24 bg-white/5 rounded border border-white/10 flex items-center justify-center text-slate-500">
+                        <div className="text-center">
+                          <Upload className="w-6 h-6 mx-auto mb-1 opacity-50" />
+                          <span className="text-[10px] uppercase">No Image</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex-1">
+                      <p className="text-xs text-slate-400 mb-2">
+                        Upload an image to identify this product easily.
+                      </p>
+                      <button
+                        type="button"
+                        disabled={isUploading}
+                        onClick={() => imageUploadRef.current?.click()}
+                        className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs font-bold text-white transition-colors flex items-center gap-2"
+                      >
+                        {isUploading ? 'Uploading...' : 'Choose Image'}
+                        {!isUploading && <Upload className="w-3 h-3" />}
+                      </button>
+                      <input
+                        type="file"
+                        ref={imageUploadRef}
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-bold text-slate-400 mb-1 uppercase tracking-wider">code *</label>
@@ -346,17 +472,6 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-bold text-slate-400 mb-1 uppercase tracking-wider">Description (Name) *</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-white/10 bg-black/40 rounded-lg text-white focus:ring-2 focus:ring-primary outline-none placeholder-slate-600"
-                />
-              </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-bold text-slate-400 mb-1 uppercase tracking-wider">Unit</label>
@@ -372,8 +487,41 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
                     {existingUnits.map(u => <option key={u} value={u} />)}
                   </datalist>
                 </div>
-                <div>
-                  {/* Hidden posting group field to keep data model consistent if needed */}
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-400 mb-1 uppercase tracking-wider">Description (Name) *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={e => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-white/10 bg-black/40 rounded-lg text-white focus:ring-2 focus:ring-primary outline-none placeholder-slate-600"
+                />
+
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-400 mb-1 uppercase tracking-wider">Department / Usage</label>
+                <div className="flex gap-4">
+                  {['SHARED', 'RTE', 'RTC'].map((dept) => (
+                    <label key={dept} className="flex items-center gap-2 cursor-pointer group">
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.department === dept || (!formData.department && dept === 'SHARED') ? 'border-primary' : 'border-slate-600 group-hover:border-slate-500'}`}>
+                        {(formData.department === dept || (!formData.department && dept === 'SHARED')) && <div className="w-2 h-2 rounded-full bg-primary" />}
+                      </div>
+                      <input
+                        type="radio"
+                        name="department"
+                        value={dept}
+                        checked={formData.department === dept || (!formData.department && dept === 'SHARED')}
+                        onChange={() => setFormData({ ...formData, department: dept as any })}
+                        className="hidden"
+                      />
+                      <span className={`text-sm font-bold ${formData.department === dept || (!formData.department && dept === 'SHARED') ? 'text-white' : 'text-slate-500 group-hover:text-slate-400'}`}>
+                        {dept}
+                      </span>
+                    </label>
+                  ))}
                 </div>
               </div>
 
@@ -408,7 +556,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
               </div>
             </form>
           </div>
-        </div>
+        </div >
       )}
 
       {/* Global Modal */}
@@ -420,7 +568,10 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts })
         message={modalConfig.message}
         type={modalConfig.type}
       />
-    </div>
+
+      {/* Global Fixed Tooltip */}
+
+    </div >
   );
 };
 

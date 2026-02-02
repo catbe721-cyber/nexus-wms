@@ -202,7 +202,6 @@ const ItemEntriesPage: React.FC<ItemEntriesPageProps> = ({ transactions }) => {
                                 <th className="px-6 py-4">Date</th>
                                 <th className="px-6 py-4">Type</th>
                                 <th className="px-6 py-4">Item</th>
-                                <th className="px-6 py-4">Category</th>
                                 <th className="px-6 py-4 text-right">Qty</th>
                                 <th className="px-6 py-4 text-right">Balance</th>
                                 <th className="px-6 py-4">Location Log</th>
@@ -225,11 +224,6 @@ const ItemEntriesPage: React.FC<ItemEntriesPageProps> = ({ transactions }) => {
                                     <td className="px-6 py-4">
                                         <div className="font-medium text-slate-200 text-base">{t.productName}</div>
                                         <div className="text-xs text-slate-500 font-mono mt-0.5">{t.productCode}</div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="px-2 py-0.5 bg-slate-800 rounded text-[10px] uppercase font-bold tracking-wide text-slate-400 border border-white/5">
-                                            {t.category}
-                                        </span>
                                     </td>
                                     <td className="px-6 py-4 text-right font-mono">
                                         <span className={t.quantity > 0 ? 'text-green-400 font-bold' : 'text-orange-400 font-bold'}>

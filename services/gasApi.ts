@@ -105,6 +105,103 @@ export const GASService = {
     },
 
     /**
+     * Upload an image to Google Drive via GAS
+     * @param url The Web App URL
+     * @param file The file object to upload
+     */
+    async uploadImage(url: string, file: File): Promise<string> {
+        if (!url) throw new Error('GAP API URL not configured');
+
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = async () => {
+                try {
+                    const base64 = reader.result as string;
+                    const payload = JSON.stringify({
+                        action: 'uploadImage',
+                        data: {
+                            name: file.name,
+                            type: file.type,
+                            base64: base64
+                        }
+                    });
+
+                    // We surely need a CORS response here to get the URL back. 
+                    // This implies the GAS script MUST return correct CORS headers 
+                    // or be deployed as "Anyone" execution (usually handles CORS better).
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        body: payload,
+                        // mode: 'cors', // Default is cors usually
+                        headers: {
+                            'Content-Type': 'text/plain;charset=utf-8',
+                        },
+                    });
+
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        resolve(result.data);
+                    } else {
+                        reject(new Error(result.message || 'Upload failed'));
+                    }
+                } catch (e) {
+                    reject(e);
+                }
+            };
+            reader.onerror = (error) => reject(error);
+            reader.readAsDataURL(file);
+        });
+    },
+
+    /**
+     * Delete an image from Google Drive
+     * @param url The Web App URL
+     * @param imageUrl The full image URL to delete (will extract ID)
+     */
+    async deleteImage(url: string, imageUrl: string): Promise<boolean> {
+        if (!url || !imageUrl) return false;
+
+        // Extract ID
+        let fileId = '';
+        const idMatch = imageUrl.match(/id=([a-zA-Z0-9_-]+)/);
+        if (idMatch && idMatch[1]) {
+            fileId = idMatch[1];
+        } else {
+            // Fallback for /d/ID/ view links
+            const pathMatch = imageUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (pathMatch && pathMatch[1]) fileId = pathMatch[1];
+        }
+
+        if (!fileId) {
+            console.error('GASService: Could not extract file ID from URL', imageUrl);
+            return false;
+        }
+
+        try {
+            const payload = JSON.stringify({
+                action: 'deleteImage',
+                data: { id: fileId }
+            });
+
+            // Using no-cors/blind send because we just want to fire the deletion
+            // We don't strictly need to confirm it for the UI to proceed
+            await fetch(url, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: payload,
+                credentials: 'omit',
+                redirect: 'follow',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            });
+            console.log('GASService: Delete request sent for', fileId);
+            return true;
+        } catch (e) {
+            console.error('GASService: Failed to delete image', e);
+            return false;
+        }
+    },
+
+    /**
      * Test the connection
      */
     async testConnection(url: string) {

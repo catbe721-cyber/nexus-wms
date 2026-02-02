@@ -546,6 +546,9 @@ export function useAppState() {
         editingItem,
         sidebarOpen,
         modalConfig,
+
+        gasConfig, // Exposed
+        setGasConfig, // Exposed
         inventorySummary,
         lowStockItems,
         topMovers,

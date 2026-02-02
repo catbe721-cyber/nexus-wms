@@ -3,7 +3,7 @@ import { Product, InventoryItem, SavedPickList, getBestLocationScore } from '../
 import { PackageMinus, CheckCircle, ShoppingCart, Trash2, Plus, AlertCircle, Save, FolderOpen, X, ScanLine, Image as ImageIcon, Sparkles, Loader2 } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
 import { parsePickList } from '../services/geminiService';
-import { smartSearch } from '../utils';
+import { smartSearch, getEmbedLink } from '../utils';
 
 interface OutboundFormProps {
   products: Product[];
@@ -395,8 +395,17 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
                     onClick={() => handleSelectProduct(p)}
                     className="px-4 py-3 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0"
                   >
-                    <span className="font-bold text-slate-200 block text-md">{p.name}</span>
-                    <span className="text-slate-500 text-xs font-mono">{p.productCode}</span>
+                    <div className="flex items-center gap-3">
+                      {p.image && (
+                        <div className="w-10 h-10 rounded bg-slate-800 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                          <img src={getEmbedLink(p.image)} alt={p.name} className="w-full h-full object-contain" />
+                        </div>
+                      )}
+                      <div>
+                        <span className="font-bold text-slate-200 block text-md">{p.name}</span>
+                        <span className="text-slate-500 text-xs font-mono">{p.productCode}</span>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -406,6 +415,14 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
           {/* Quantity & Info */}
           {selectedProduct && (
             <div className="animate-in fade-in space-y-4">
+              {selectedProduct.image && (
+                <div className="w-full h-48 bg-black/40 rounded-xl border border-white/10 overflow-hidden relative group">
+                  <img src={getEmbedLink(selectedProduct.image)} alt={selectedProduct.name} className="w-full h-full object-contain p-2" />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-xs text-center text-slate-400">
+                    Product Reference Image
+                  </div>
+                </div>
+              )}
               <div className="p-3 bg-white/5 rounded-lg border border-white/5">
                 <p className="text-xs text-slate-500 uppercase font-bold mb-1">Available Stock</p>
                 <div className="flex items-baseline gap-2">
@@ -488,9 +505,17 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
                         Insufficient Stock (Max {totalStock})
                       </div>
                     )}
-                    <div>
-                      <p className={`font-bold ${isOverStock ? 'text-red-300' : 'text-slate-200'}`}>{c.product.name}</p>
-                      <p className="text-xs text-slate-500 font-mono">{c.product.productCode}</p>
+
+                    <div className="flex items-center gap-3">
+                      {c.product.image && (
+                        <div className="w-10 h-10 rounded bg-black/40 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                          <img src={getEmbedLink(c.product.image)} alt={c.product.name} className="w-full h-full object-contain" />
+                        </div>
+                      )}
+                      <div>
+                        <p className={`font-bold ${isOverStock ? 'text-red-300' : 'text-slate-200'}`}>{c.product.name}</p>
+                        <p className="text-xs text-slate-500 font-mono">{c.product.productCode}</p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">

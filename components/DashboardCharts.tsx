@@ -1,11 +1,14 @@
 import React, { useMemo } from 'react';
-import { InventoryItem, Transaction, AREA_CONFIG } from '../types';
+import { InventoryItem, Transaction, AREA_CONFIG, Product } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, AreaChart, Area, CartesianGrid } from 'recharts';
 import { format } from 'date-fns';
 
 interface DashboardChartsProps {
     inventory: InventoryItem[];
     transactions: Transaction[];
+    products: Product[];
+    topMovers: any[];
+    deadStock: any[];
 }
 
 const COLORS = ['#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#6366f1'];
@@ -23,7 +26,7 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
     );
 };
 
-const DashboardCharts: React.FC<DashboardChartsProps> = ({ inventory, transactions }) => {
+const DashboardCharts: React.FC<DashboardChartsProps> = ({ inventory, transactions, products, topMovers, deadStock }) => {
 
     // 1. Slot Distribution Data (Count of locations/pallets instead of raw qty)
     const categoryData = useMemo(() => {
@@ -37,7 +40,20 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ inventory, transactio
             .sort((a, b) => b.value - a.value);
     }, [inventory]);
 
-    // 2. Rack Utilization Data
+    // 2. Department Data (New)
+    const deptData = useMemo(() => {
+        const counts: Record<string, number> = {};
+        inventory.forEach(item => {
+            const product = products.find(p => p.productCode === item.productCode);
+            const dept = product?.department || 'Unknown';
+            counts[dept] = (counts[dept] || 0) + item.locations.length;
+        });
+        return Object.entries(counts)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value);
+    }, [inventory, products]);
+
+    // 3. Rack Utilization Data
     const rackData = useMemo(() => {
         const counts: Record<string, number> = {};
 
@@ -72,7 +88,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ inventory, transactio
         return racks.map(rack => ({ name: rack, count: counts[rack] }));
     }, [inventory]);
 
-    // 3. Activity Trends Data (Last 7 Days)
+    // 4. Activity Trends Data (Last 7 Days)
     const activityData = useMemo(() => {
         const days = 7;
         const data: Record<string, { date: string, inbound: number, outbound: number }> = {};
@@ -97,88 +113,167 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ inventory, transactio
     }, [transactions]);
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-            {/* Category Chart */}
-            <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 backdrop-blur-md">
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Slot Distribution</h3>
-                <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                                data={categoryData}
-                                cx="50%"
-                                cy="50%"
-                                labelLine={false}
-                                label={renderCustomizedLabel}
-                                outerRadius={80}
-                                fill="#8884d8"
-                                dataKey="value"
-                            >
-                                {categoryData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                ))}
-                            </Pie>
-                            <Tooltip
-                                contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
-                                itemStyle={{ color: '#fff' }}
-                            />
-                        </PieChart>
-                    </ResponsiveContainer>
+        <div className="space-y-6 mt-6">
+            {/* Row 1: Pies & Trends */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Activity Trends Chart */}
+                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 backdrop-blur-md lg:col-span-1">
+                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Volume Trends (7 Days)</h3>
+                    <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={activityData}>
+                                <defs>
+                                    <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                    </linearGradient>
+                                    <linearGradient id="colorOut" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <XAxis dataKey="date" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                                <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} vertical={false} />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
+                                />
+                                <Area type="monotone" dataKey="inbound" stroke="#10b981" fillOpacity={1} fill="url(#colorIn)" />
+                                <Area type="monotone" dataKey="outbound" stroke="#ef4444" fillOpacity={1} fill="url(#colorOut)" />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
-                <div className="flex flex-wrap gap-2 justify-center mt-2">
-                    {categoryData.map((entry, index) => (
-                        <div key={entry.name} className="flex items-center gap-1 text-xs text-slate-400">
-                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                            {entry.name}
-                        </div>
-                    ))}
+
+                {/* Category Chart */}
+                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 backdrop-blur-md">
+                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Slot Category</h3>
+                    <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={categoryData}
+                                    cx="50%"
+                                    cy="50%"
+                                    labelLine={false}
+                                    label={renderCustomizedLabel}
+                                    outerRadius={80}
+                                    fill="#8884d8"
+                                    dataKey="value"
+                                >
+                                    {categoryData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
+                                    itemStyle={{ color: '#fff' }}
+                                />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                    <div className="flex flex-wrap gap-2 justify-center mt-2">
+                        {categoryData.slice(0, 5).map((entry, index) => (
+                            <div key={entry.name} className="flex items-center gap-1 text-xs text-slate-400">
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                                {entry.name}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Department Chart */}
+                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 backdrop-blur-md">
+                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Slot Dept</h3>
+                    <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={deptData}
+                                    cx="50%"
+                                    cy="50%"
+                                    labelLine={false}
+                                    label={renderCustomizedLabel}
+                                    outerRadius={80}
+                                    fill="#2dd4bf"
+                                    dataKey="value"
+                                >
+                                    {deptData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
+                                    itemStyle={{ color: '#fff' }}
+                                />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                    <div className="flex flex-wrap gap-2 justify-center mt-2">
+                        {deptData.slice(0, 5).map((entry, index) => (
+                            <div key={entry.name} className="flex items-center gap-1 text-xs text-slate-400">
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[(index + 2) % COLORS.length] }}></div>
+                                {entry.name}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
 
-            {/* Rack Utilization Chart */}
-            <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 backdrop-blur-md">
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Slot Occupancy</h3>
-                <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={rackData}>
-                            <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                            <Tooltip
-                                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                                contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
-                            />
-                            <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
+            {/* Row 2: Bars */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Rack Utilization Chart */}
+                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 backdrop-blur-md">
+                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Slot Occupancy</h3>
+                    <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={rackData}>
+                                <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                                <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                                <Tooltip
+                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                    contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
+                                />
+                                <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
-            </div>
 
-            {/* Activity Trends Chart */}
-            <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 backdrop-blur-md">
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Volume Trends (7 Days)</h3>
-                <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={activityData}>
-                            <defs>
-                                <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                </linearGradient>
-                                <linearGradient id="colorOut" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <XAxis dataKey="date" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                            <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} vertical={false} />
-                            <Tooltip
-                                contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
-                            />
-                            <Area type="monotone" dataKey="inbound" stroke="#10b981" fillOpacity={1} fill="url(#colorIn)" />
-                            <Area type="monotone" dataKey="outbound" stroke="#ef4444" fillOpacity={1} fill="url(#colorOut)" />
-                        </AreaChart>
-                    </ResponsiveContainer>
+                {/* Top Movers Bar Chart */}
+                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 backdrop-blur-md">
+                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Top Movers</h3>
+                    <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={topMovers.slice(0, 5).map(i => ({ name: i.name.substring(0, 10) + '...', qty: i.qty }))}>
+                                <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                                <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                                <Tooltip
+                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                    contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
+                                />
+                                <Bar dataKey="qty" fill="#10b981" radius={[4, 4, 0, 0]} name="Quantity" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Stagnant Stock Bar Chart */}
+                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 backdrop-blur-md">
+                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Stagnant Stock (Age)</h3>
+                    <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={deadStock.slice(0, 5).map((i: any) => ({ name: i.productName.substring(0, 10) + '...', days: Math.floor((Date.now() - i.updatedAt) / (1000 * 60 * 60 * 24)) }))}>
+                                <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                                <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                                <Tooltip
+                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                    contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
+                                />
+                                <Bar dataKey="days" fill="#ef4444" radius={[4, 4, 0, 0]} name="Days Old" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
             </div>
         </div>

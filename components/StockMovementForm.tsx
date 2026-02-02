@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, InventoryItem, MasterLocation } from '../types';
 import { ArrowRightLeft, Search, MapPin, Box, ArrowRight, CheckCircle, Check } from 'lucide-react';
-import { smartSearch, filterBinCodes } from '../utils';
+import { smartSearch, filterBinCodes, getEmbedLink } from '../utils';
 
 interface StockMovementFormProps {
     products: Product[];
@@ -159,8 +159,14 @@ const StockMovementForm: React.FC<StockMovementFormProps> = ({
                                         onClick={() => handleSelectSource(item)}
                                         className="p-3 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0"
                                     >
-                                        <div className="flex justify-between items-start">
-                                            <div>
+                                        <div className="flex justify-between items-start gap-3">
+                                            {/* Image Thumbnail */}
+                                            {item.image && (
+                                                <div className="w-10 h-10 rounded bg-slate-800 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                                                    <img src={getEmbedLink(item.image)} alt={item.productName} className="w-full h-full object-contain" />
+                                                </div>
+                                            )}
+                                            <div className="flex-1">
                                                 <p className="font-bold text-slate-200">{item.productName}</p>
                                                 <p className="text-xs text-slate-500 font-mono">{item.productCode}</p>
                                             </div>
@@ -179,6 +185,13 @@ const StockMovementForm: React.FC<StockMovementFormProps> = ({
 
                     {selectedSourceItem && (
                         <div className="bg-slate-800/40 p-4 rounded-xl border border-white/5 animate-in fade-in">
+                            {/* Product Image Preview */}
+                            {selectedSourceItem.image && (
+                                <div className="w-full h-32 bg-black/40 rounded-lg border border-white/10 overflow-hidden flex items-center justify-center mb-4">
+                                    <img src={getEmbedLink(selectedSourceItem.image)} alt="Preview" className="h-full object-contain" />
+                                </div>
+                            )}
+
                             <div className="flex justify-between items-center mb-4">
                                 <span className="text-xs text-slate-500 uppercase font-bold">Current Location</span>
                                 <span className="font-mono font-bold text-white bg-blue-500/20 px-3 py-1 rounded text-blue-300 border border-blue-500/30">

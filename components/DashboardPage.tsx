@@ -1,11 +1,13 @@
 import React from 'react';
 import { InventoryItem, Transaction, Product } from '../types';
-import { AlertTriangle, Tag } from 'lucide-react';
+import { AlertTriangle, Tag, Boxes, Users } from 'lucide-react';
+import { getCategoryColor } from '../utils';
 import DashboardCharts from './DashboardCharts';
 
 interface DashboardProps {
     inventory: InventoryItem[];
     inventorySummary: any[]; // Or specific type
+    products: Product[];
     lowStockItems: any[];
     topMovers: any[];
     deadStock: any[];
@@ -15,6 +17,7 @@ interface DashboardProps {
 const DashboardPage: React.FC<DashboardProps> = ({
     inventory,
     inventorySummary,
+    products,
     lowStockItems,
     topMovers,
     deadStock,
@@ -57,11 +60,7 @@ const DashboardPage: React.FC<DashboardProps> = ({
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 hover:border-primary/50 transition-all backdrop-blur-md group">
-                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1 group-hover:text-primary transition-colors">Total Items</p>
-                    <p className="text-4xl font-bold text-white font-display">{inventory.reduce((acc, i) => acc + i.quantity, 0).toLocaleString()}</p>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 hover:border-accent/50 transition-all backdrop-blur-md group">
                     <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1 group-hover:text-accent transition-colors">Products</p>
                     <p className="text-4xl font-bold text-white font-display">{inventorySummary.length}</p>
@@ -81,67 +80,13 @@ const DashboardPage: React.FC<DashboardProps> = ({
             </div>
 
             {/* VISUALIZATIONS */}
-            <DashboardCharts inventory={inventory} transactions={transactions} />
-
-            {/* Advanced Metrics Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                {/* Top Movers */}
-                <div className="bg-slate-900/40 p-6 rounded-xl border border-white/5">
-                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2 font-display">
-                        <Tag className="w-5 h-5 text-green-400" /> Top Movers
-                    </h3>
-                    <div className="space-y-3">
-                        {topMovers.length === 0 ? (
-                            <p className="text-slate-500 text-sm italic">No outbound data yet.</p>
-                        ) : (
-                            topMovers.map((item, idx) => (
-                                <div key={item.code} className="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg border border-white/5">
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-slate-500 font-mono text-sm font-bold">#{idx + 1}</span>
-                                        <div>
-                                            <p className="font-bold text-slate-200 text-sm">{item.name}</p>
-                                            <p className="text-xs text-slate-500 font-mono">{item.code}</p>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="font-bold text-green-400">{item.qty.toLocaleString()}</p>
-                                        <p className="text-[10px] text-slate-500 uppercase">{item.unit}</p>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
-
-                {/* Dead Stock */}
-                <div className="bg-slate-900/40 p-6 rounded-xl border border-white/5">
-                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2 font-display">
-                        <AlertTriangle className="w-5 h-5 text-amber-500" /> Stagnant Stock (30d+)
-                    </h3>
-                    <div className="space-y-3">
-                        {deadStock.length === 0 ? (
-                            <p className="text-slate-500 text-sm italic">Inventory is moving nicely!</p>
-                        ) : (
-                            deadStock.map((item) => (
-                                <div key={item.id} className="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg border border-white/5">
-                                    <div>
-                                        <p className="font-bold text-slate-200 text-sm">{item.productName}</p>
-                                        <p className="text-xs text-slate-500 font-mono flex gap-2">
-                                            <span>{item.productCode}</span>
-                                            <span className="text-amber-500/80">• {Math.floor((Date.now() - item.updatedAt) / (1000 * 60 * 60 * 24))}d old</span>
-                                        </p>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-1 rounded text-xs font-bold">
-                                            {item.locations.map((l: any) => `${l.rack}-${l.bay}`).join(', ')}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
-            </div>
+            <DashboardCharts
+                inventory={inventory}
+                transactions={transactions}
+                products={products}
+                topMovers={topMovers}
+                deadStock={deadStock}
+            />
         </div>
     );
 };

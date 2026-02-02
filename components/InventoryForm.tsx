@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Product, InventoryItem, InventoryLocation, MasterLocation } from '../types';
-import { smartSearch, filterBinCodes } from '../utils';
+import { smartSearch, filterBinCodes, getEmbedLink } from '../utils';
 import { X, CheckCircle, Save, MapPin, Lock, Check } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
 
@@ -15,8 +15,9 @@ interface InventoryFormProps {
 const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations = [], initialData, onSave, onCancel }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [quantity, setQuantity] = useState<number>(0);
-  const [unit, setUnit] = useState('pcs');
+  const [quantity, setQuantity] = useState<string>('');
+  const [unit, setUnit] = useState<string>('');
+  // const [expandedImage, setExpandedImage] = useState<string | null | undefined>(null); // Removed per user request
   const [category, setCategory] = useState<string>('OTH');
   const [locations, setLocations] = useState<InventoryLocation[]>([]);
 
@@ -192,9 +193,18 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
                   onClick={() => handleSelectProduct(p)}
                   className="px-4 py-2 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0"
                 >
-                  <span className="font-bold text-slate-200">{p.name}</span>
-                  <br />
-                  <span className="text-xs text-slate-500">{p.productCode}</span>
+                  <div className="flex items-center gap-3">
+                    {p.image && (
+                      <div className="w-8 h-8 rounded bg-slate-800 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                        <img src={getEmbedLink(p.image)} alt={p.name} className="w-full h-full object-contain" />
+                      </div>
+                    )}
+                    <div>
+                      <span className="font-bold text-slate-200">{p.name}</span>
+                      <br />
+                      <span className="text-xs text-slate-500">{p.productCode}</span>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -237,11 +247,17 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
           </div>
         </div>
 
-        {selectedProduct && selectedProduct.postingGroup ? (
-          <div className="text-xs text-slate-400 bg-slate-800 p-2 rounded border border-white/10">
-            Posting Group: <span className="font-medium text-slate-300">{selectedProduct.postingGroup}</span>
+
+
+        {/* Selected Product Image Preview */}
+        {selectedProduct && selectedProduct.image && (
+          <div className="w-full h-48 bg-black/40 rounded-xl border border-white/10 overflow-hidden relative group">
+            <img src={getEmbedLink(selectedProduct.image)} alt={selectedProduct.name} className="w-full h-full object-contain p-2" />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-xs text-center text-slate-400">
+              Product Reference Image
+            </div>
           </div>
-        ) : null}
+        )}
 
         {/* Location Manager */}
         <div className="border border-white/10 rounded-lg p-4 bg-black/20">

@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
 import { InventoryItem, Product } from '../types';
-import { FileText, AlertTriangle, Search, Package, Filter } from 'lucide-react';
-import { smartSearch, getCategoryColor } from '../utils';
+import { FileText, AlertTriangle, Search, Package, Filter, List } from 'lucide-react';
+import { smartSearch, getCategoryColor, getEmbedLink } from '../utils';
+import ImageThumbnail from './ImageThumbnail';
 
 interface InventoryListProps {
     inventory: InventoryItem[];
@@ -27,8 +28,10 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
             qty: number,
             unit: string,
             category: string,
+            department: string, // Added department
             locations: Set<string>,
-            minStock: number
+            minStock: number,
+            image?: string
         }> = {};
 
         inventory.forEach(item => {
@@ -40,8 +43,10 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
                     qty: 0,
                     unit: item.unit,
                     category: item.category,
+                    department: product?.department || '-', // Derive department
                     locations: new Set(),
-                    minStock: product?.minStockLevel || 0
+                    minStock: product?.minStockLevel || 0,
+                    image: product?.image
                 };
             }
             summary[item.productCode].qty += item.quantity;
@@ -52,9 +57,8 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
     }, [inventory, products]);
 
     const filteredItems = inventorySummary.filter(item => {
-        const matchesSearch = smartSearch(item, ['productCode', 'name', 'category'], searchTerm);
-        const matchesCategory = categoryFilter === 'ALL' || item.category === categoryFilter;
-        return matchesSearch && matchesCategory;
+        const matchesSearch = smartSearch(item, ['productCode', 'name'], searchTerm);
+        return matchesSearch;
     });
 
     const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
@@ -68,6 +72,11 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
         }
         setExpandedItems(newSet);
     };
+
+    // --- Image Preview Logic (Fixed Positioning) ---
+    // --- Image Preview Logic (Fixed Positioning) ---
+    // Refactored to use ImageThumbnail
+
 
 
 
@@ -83,53 +92,46 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
                 </div>
 
                 <div className="flex gap-2 w-full md:w-auto">
-                    {/* Category Filter */}
-                    <div className="relative">
-                        <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" />
-                        <select
-                            value={categoryFilter}
-                            onChange={(e) => setCategoryFilter(e.target.value)}
-                            className="pl-9 pr-8 py-2 border border-white/10 bg-black/40 rounded-lg text-sm text-slate-200 focus:ring-2 focus:ring-primary outline-none appearance-none cursor-pointer"
-                        >
-                            <option value="ALL">All Categories</option>
-                            {availableCategories.map((cat: string) => (
-                                <option key={cat} value={cat}>{cat}</option>
-                            ))}
-                        </select>
-                    </div>
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2 font-display uppercase tracking-wider">
+                        <List className="w-6 h-6 text-primary" />
+                        Current Stock
+                    </h2>
+                    <p className="text-sm text-slate-400">View real-time inventory levels across all bins.</p>
+                </div>
 
-                    <div className="relative flex-1 md:w-64">
+                <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                    <div className="relative flex-1 md:flex-initial">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" />
                         <input
                             type="text"
+                            placeholder="Search item, code, bin..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Search inventory..."
-                            className="w-full pl-9 pr-4 py-2 border border-white/10 bg-black/40 rounded-lg text-sm text-slate-200 focus:ring-2 focus:ring-primary outline-none placeholder-slate-600"
+                            className="w-full md:w-64 pl-9 pr-4 py-2 bg-black/40 border border-white/10 rounded-lg text-sm text-white focus:ring-2 focus:ring-primary outline-none"
                         />
+
                     </div>
                 </div>
             </div>
 
-            <div className="bg-slate-900/60 backdrop-blur-md rounded-xl shadow-[0_0_15px_rgba(0,0,0,0.5)] border border-white/10 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-slate-400">
-                        <thead className="bg-black/40 text-xs uppercase font-bold text-slate-400 border-b border-white/10 tracking-wider">
+            {/* Main Table */}
+            <div className="flex-1 min-h-0 bg-slate-900/60 backdrop-blur-md rounded-xl shadow-lg border border-white/10 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-black/40 sticky top-0 z-10 backdrop-blur-md border-b border-white/10">
                             <tr>
-                                <th className="px-6 py-4">Item</th>
-                                {/* <th className="px-6 py-4">Category</th> REMOVED */}
-                                <th className="px-6 py-4 text-right">Total Qty</th>
-                                <th className="px-6 py-4">Status</th>
-                                <th className="px-6 py-4">Locations Found</th>
+                                <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs w-1/4">Product</th>
+                                <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Category</th>
+                                <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Dept</th>
+                                <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs text-right">Total Qty</th>
+                                <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs text-center">Status</th>
+                                <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Locations Found</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {filteredItems.map(item => {
                                 const isLow = item.minStock > 0 && item.qty < item.minStock;
                                 const isExpanded = expandedItems.has(item.productCode);
-
-                                // Group locations by unique sub-quantities if we want precise counts
-                                // We need to re-scan inventory to get detailed breakdown for this product
                                 const productInventory = inventory.filter(i => i.productCode === item.productCode);
 
                                 return (
@@ -144,70 +146,66 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
                                                         <div className="font-bold text-slate-200 text-base group-hover:text-primary transition-colors">{item.name}</div>
                                                         <div className="text-xs text-slate-500 font-mono mt-0.5">{item.productCode}</div>
                                                     </div>
-                                                    <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${getCategoryColor(item.category)}`}>
-                                                        {item.category}
-                                                    </span>
+                                                    {item.image && (
+                                                        <ImageThumbnail src={item.image} alt={item.name} />
+                                                    )}
                                                 </div>
                                             </td>
-                                            {/* Category Column Removed */}
-                                            {/* <td className="px-6 py-4">
-                                                <span className={`px - 2 py - 0.5 rounded text - [10px] font - bold uppercase tracking - wide border ${ getCategoryColor(item.category) } `}>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${getCategoryColor(item.category)}`}>
                                                     {item.category}
                                                 </span>
-                                            </td> */}
-                                            <td className="px-6 py-4 text-right">
-                                                <span className="font-bold text-white text-lg font-mono">{item.qty}</span>
-                                                <span className="text-xs text-slate-500 ml-1">{item.unit}</span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                {isLow ? (
-                                                    <span className="inline-flex items-center gap-1 text-red-400 font-bold text-xs bg-red-500/10 border border-red-500/30 px-2 py-1 rounded">
-                                                        <AlertTriangle className="w-3 h-3" /> Low Stock
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-green-400 font-bold text-xs bg-green-500/10 border border-green-500/30 px-2 py-1 rounded">OK</span>
-                                                )}
+                                                <span className={`px-2 py-1 rounded text-[10px] font-bold border ${item.department === 'RTE' ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' : item.department === 'RTC' ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' : 'bg-slate-700/50 text-slate-500 border-white/5'}`}>
+                                                    {item.department || 'SHARED'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <span className="text-lg font-bold font-mono text-white">{item.qty}</span>
+                                                <span className="text-xs text-slate-500 ml-1">{item.unit}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`px-2 py-1 rounded text-xs font-bold uppercase border ${!isLow
+                                                    ? 'bg-green-500/10 text-green-500 border-green-500/20'
+                                                    : 'bg-red-500/10 text-red-500 border-red-500/20'
+                                                    }`}>
+                                                    {!isLow ? 'OK' : 'LOW'}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-wrap gap-1">
-                                                    {Array.from(item.locations).slice(0, 3).map((loc: string) => (
-                                                        <span key={loc} className={`px-2 py-0.5 rounded text-xs border ${loc.startsWith('S-') || loc.startsWith('STG')
-                                                            ? 'bg-amber-500/20 text-amber-400 border-amber-500/30 font-bold'
-                                                            : 'bg-slate-800 text-slate-400 border-white/5'
-                                                            }`}>
+                                                    {Array.from(item.locations).slice(0, 3).map((loc, i) => (
+                                                        <span key={i} className="px-2 py-0.5 bg-white/5 rounded text-xs font-mono text-slate-300 border border-white/10">
                                                             {loc}
                                                         </span>
                                                     ))}
                                                     {item.locations.size > 3 && (
-                                                        <span className="px-2 py-0.5 rounded text-xs bg-slate-800 text-slate-400 border border-white/5">
-                                                            +{item.locations.size - 3} more
-                                                        </span>
+                                                        <span className="px-2 py-0.5 text-xs text-slate-500">+{item.locations.size - 3} more</span>
                                                     )}
                                                 </div>
                                             </td>
                                         </tr>
+
+                                        {/* Expanded Detail Row */}
                                         {isExpanded && (
-                                            <tr className="bg-slate-900/80">
-                                                <td colSpan={5} className="px-6 py-4 shadow-inner">
-                                                    <div className="border border-white/10 rounded-lg overflow-hidden">
-                                                        <div className="px-4 py-2 bg-black/40 text-xs font-bold text-slate-400 uppercase tracking-wider flex justify-between">
-                                                            <span>Bin Location</span>
-                                                            <span>Quantity</span>
-                                                        </div>
-                                                        <div className="divide-y divide-white/5">
-                                                            {productInventory.map(invItem => (
-                                                                <div key={invItem.id} className="px-4 py-3 flex justify-between items-center bg-slate-800/20 hover:bg-slate-800/40 transition-colors">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <Package className="w-4 h-4 text-primary/50" />
-                                                                        <span className="font-mono text-slate-300 font-bold">
-                                                                            {invItem.locations.map(l => `${l.rack}-${l.bay}-${l.level}`).join(', ')}
-                                                                        </span>
-                                                                        {(invItem.locations[0]?.rack === 'S' || invItem.locations[0]?.rack.startsWith('STG')) && (
-                                                                            <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/30">Staging</span>
-                                                                        )}
+                                            <tr className="bg-black/20 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                <td colSpan={4} className="p-4 pl-16">
+                                                    <div className="bg-slate-900 rounded-lg border border-white/10 p-4 shadow-inner">
+                                                        <h4 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
+                                                            <Package className="w-3 h-3" /> Location Breakdown
+                                                        </h4>
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                                            {productInventory.map((invItem, idx) => (
+                                                                <div key={idx} className="flex justify-between items-center p-2 bg-black/40 rounded border border-white/5 hover:border-white/10 transition-colors">
+                                                                    <div className="font-mono text-primary font-bold">
+                                                                        {invItem.locations.map(l => `${l.rack}-${l.bay}-${l.level}`).join(', ')}
                                                                     </div>
-                                                                    <div className="font-mono text-white font-bold">
-                                                                        {invItem.quantity} <span className="text-xs text-slate-500 font-normal">{item.unit}</span>
+                                                                    <div className="text-right">
+                                                                        <div className="text-white font-bold">{invItem.quantity} {item.unit}</div>
+                                                                        {(invItem.locations[0]?.rack === 'S' || invItem.locations[0]?.rack.startsWith('STG')) && (
+                                                                            <div className="text-[10px] text-amber-500 uppercase">Staging</div>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             ))}
@@ -217,16 +215,27 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
                                             </tr>
                                         )}
                                     </React.Fragment>
-                                )
+                                );
                             })}
+
                             {filteredItems.length === 0 && (
-                                <tr><td colSpan={5} className="p-10 text-center text-slate-500">No records found.</td></tr>
+                                <tr>
+                                    <td colSpan={4} className="p-12 text-center text-slate-500">
+                                        <div className="flex flex-col items-center">
+                                            <Search className="w-8 h-8 mb-2 opacity-50" />
+                                            <p>No inventory items found matching your filter.</p>
+                                        </div>
+                                    </td>
+                                </tr>
                             )}
                         </tbody>
                     </table>
                 </div>
             </div>
-        </div>
+
+            {/* Global Fixed Tooltip */}
+
+        </div >
     );
 };
 
