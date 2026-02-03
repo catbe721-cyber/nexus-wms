@@ -205,7 +205,6 @@ const ItemEntriesPage: React.FC<ItemEntriesPageProps> = ({ transactions }) => {
                                 <th className="px-6 py-4 text-right">Qty</th>
                                 <th className="px-6 py-4 text-right">Balance</th>
                                 <th className="px-6 py-4">Location Log</th>
-                                <th className="px-6 py-4">Notes</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -236,9 +235,6 @@ const ItemEntriesPage: React.FC<ItemEntriesPageProps> = ({ transactions }) => {
                                     </td>
                                     <td className="px-6 py-4 text-xs font-mono text-slate-500">
                                         {t.locationInfo}
-                                    </td>
-                                    <td className="px-6 py-4 text-xs text-slate-500 italic">
-                                        {t.notes || '-'}
                                     </td>
                                 </tr>
                             ))}

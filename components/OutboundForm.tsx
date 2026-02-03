@@ -9,7 +9,7 @@ interface OutboundFormProps {
   products: Product[];
   inventory: InventoryItem[];
   savedPickLists: SavedPickList[];
-  onProcess: (itemsToRemove: { id: string, qty: number }[]) => void;
+  onProcess: (itemsToRemove: { id: string, qty: number }[], note?: string) => void;
   onCancel: () => void;
   onSaveList: (name: string, items: { productCode: string, qty: number }[]) => void;
   onDeleteList: (id: string) => void;
@@ -32,6 +32,7 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [requestQty, setRequestQty] = useState<number>(0);
+  const [note, setNote] = useState<string>('');
 
   // Shopping Cart State
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -239,7 +240,8 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
         }
       });
     });
-    onProcess(flatList);
+    onProcess(flatList, note);
+    setNote('');
 
     // Success notification and Reset
     setSuccessMessage(`Successfully processed ${cart.length} items for shipping.`);
@@ -539,6 +541,17 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
                 );
               })
             )}
+          </div>
+
+          {/* Special Note */}
+          <div className="px-4 py-2 border-t border-white/5 bg-slate-900/30">
+            <input
+              type="text"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Add optional note (e.g. Order #123, Urgent, etc.)"
+              className="w-full bg-transparent text-sm text-slate-300 placeholder-slate-600 outline-none"
+            />
           </div>
 
           {/* Footer Actions */}

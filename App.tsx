@@ -23,7 +23,8 @@ import {
   ChevronUp,
   Settings,
   ArrowRightLeft,
-  Sparkles
+  Sparkles,
+  MessageSquare
 } from 'lucide-react';
 
 import { Product, InventoryItem, ViewState, InventoryLocation, Transaction, MasterLocation, AREA_CONFIG, generateId, SavedPickList } from './types';
@@ -32,6 +33,7 @@ import OutboundForm from './components/OutboundForm';
 import WarehouseMap from './components/WarehouseMap';
 import ProductPage from './components/ProductPage';
 import ItemEntriesPage from './components/ItemEntriesPage';
+import SpecialNotesPage from './components/SpecialNotesPage';
 import InventoryList from './components/InventoryList';
 import SmartPickPage from './components/SmartPickPage';
 
@@ -207,6 +209,16 @@ function App() {
                 setSidebarOpen(false);
               }}
             />
+            <SidebarItem
+              id="notes"
+              icon={MessageSquare}
+              label="Special Notes"
+              active={view === 'notes'}
+              onClick={() => {
+                setView('notes');
+                setSidebarOpen(false);
+              }}
+            />
             <div className="my-6"></div>
 
             {/* Master Data Section */}
@@ -310,6 +322,13 @@ function App() {
           {
             view === 'history' && (
               <ItemEntriesPage transactions={transactions} />
+            )
+          }
+
+          {/* Special Notes View */}
+          {
+            view === 'notes' && (
+              <SpecialNotesPage transactions={transactions} />
             )
           }
 

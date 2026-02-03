@@ -233,7 +233,8 @@ export function useAppState() {
         type: 'INBOUND' | 'OUTBOUND' | 'ADJUSTMENT' | 'MOVE' | 'DELETE' | 'COUNT',
         item: InventoryItem,
         qty: number,
-        locationOverride?: string
+        locationOverride?: string,
+        customNote?: string
     ) => {
         // Resolve the latest data from Product Master to ensure history matches current catalog
         const masterProduct = products.find(p => p.productCode === item.productCode);
@@ -251,7 +252,7 @@ export function useAppState() {
             quantity: qty,
             unit: resolvedUnit,
             locationInfo: locationOverride || item.locations.map(l => `${l.rack}-${l.bay}-${l.level}`).join(', '),
-            notes: locationOverride ? 'Manual Adjustment via Map' : 'System Entry'
+            notes: customNote || (locationOverride ? 'Manual Adjustment via Map' : 'System Entry')
         };
         setTransactions(prev => [newTx, ...prev]);
     };
@@ -263,7 +264,7 @@ export function useAppState() {
             // Update existing (Inbound Edit)
             const qtyDiff = item.quantity - editingItem.quantity;
             if (qtyDiff !== 0) {
-                logTransaction('ADJUSTMENT', { ...item, id: editingItem.id, updatedAt: Date.now() }, qtyDiff, 'Edit Entry Form');
+                logTransaction('ADJUSTMENT', { ...item, id: editingItem.id, updatedAt: Date.now() }, qtyDiff, 'Edit Entry Form', item.notes);
             }
 
             setInventory(prev => prev.map(i =>
@@ -280,7 +281,7 @@ export function useAppState() {
                 updatedAt: Date.now()
             };
             setInventory(prev => [newItem, ...prev]);
-            logTransaction('INBOUND', newItem, newItem.quantity);
+            logTransaction('INBOUND', newItem, newItem.quantity, undefined, item.notes);
         }
     };
 
@@ -302,7 +303,7 @@ export function useAppState() {
         }
     };
 
-    const handleOutboundProcess = (itemsToRemove: { id: string, qty: number }[]) => {
+    const handleOutboundProcess = (itemsToRemove: { id: string, qty: number }[], note?: string) => {
         const newTransactions: Transaction[] = [];
         const currentInventory = [...inventory];
         const updatedInventory = [...inventory];
@@ -331,7 +332,7 @@ export function useAppState() {
                 quantity: -qtyToRemove,
                 unit: resolvedUnit,
                 locationInfo: item.locations.map(l => `${l.rack}-${l.bay}-${l.level}`).join(', '),
-                notes: 'System Entry'
+                notes: note || 'System Entry'
             };
             newTransactions.push(tx);
 

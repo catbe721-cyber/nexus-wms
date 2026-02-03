@@ -19,6 +19,8 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
   const [unit, setUnit] = useState<string>('');
   // const [expandedImage, setExpandedImage] = useState<string | null | undefined>(null); // Removed per user request
   const [category, setCategory] = useState<string>('OTH');
+  const [inboundType, setInboundType] = useState<string>('Purchase');
+  const [notes, setNotes] = useState<string>('');
   const [locations, setLocations] = useState<InventoryLocation[]>([]);
 
   // Location Search State
@@ -54,6 +56,19 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
       setQuantity(initialData.quantity);
       setUnit(initialData.unit);
       setCategory(initialData.category);
+      setCategory(initialData.category);
+
+      // Parse existing notes for Type tag e.g. [Return] ...
+      const existingNote = initialData.notes || '';
+      const typeMatch = existingNote.match(/^\[(.*?)\] (.*)$/);
+      if (typeMatch) {
+        setInboundType(typeMatch[1]);
+        setNotes(typeMatch[2]);
+      } else {
+        setInboundType('Other'); // Default or fallback
+        setNotes(existingNote);
+      }
+
       setLocations(initialData.locations);
     }
   }, [initialData, products]);
@@ -124,6 +139,8 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
       quantity,
       unit,
       category,
+
+      notes: `[${inboundType}] ${notes}`,
       locations: finalLocations
     });
 
@@ -136,6 +153,8 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
       setQuantity(0);
       setSelectedProduct(null);
       setSearchTerm('');
+      setInboundType('Purchase');
+      setNotes('');
       setLocations([]);
     }
   };
@@ -249,15 +268,46 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
 
 
 
-        {/* Selected Product Image Preview */}
-        {selectedProduct && selectedProduct.image && (
-          <div className="w-full h-48 bg-black/40 rounded-xl border border-white/10 overflow-hidden relative group">
-            <img src={getEmbedLink(selectedProduct.image)} alt={selectedProduct.name} className="w-full h-full object-contain p-2" />
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-xs text-center text-slate-400">
-              Product Reference Image
-            </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <div className="col-span-1">
+            <label className="block text-sm font-bold text-slate-400 mb-1 uppercase tracking-wider">Inbound Type</label>
+            <select
+              value={inboundType}
+              onChange={(e) => setInboundType(e.target.value)}
+              className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary outline-none appearance-none"
+            >
+              <option value="Purchase">Purchase (PO)</option>
+              <option value="Return">Return (RMA)</option>
+              <option value="Internal Transfer">Internal Transfer</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
-        )}
+          <div className="col-span-2">
+            <label className="block text-sm font-bold text-slate-400 mb-1 uppercase tracking-wider">Note / Reference</label>
+            <input
+              type="text"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Enter PO number, RMA#, or details..."
+              className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+            />
+          </div>
+        </div>
+
+
+
+        {/* Selected Product Image Preview */}
+        {
+          selectedProduct && selectedProduct.image && (
+            <div className="w-full h-48 bg-black/40 rounded-xl border border-white/10 overflow-hidden relative group">
+              <img src={getEmbedLink(selectedProduct.image)} alt={selectedProduct.name} className="w-full h-full object-contain p-2" />
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-xs text-center text-slate-400">
+                Product Reference Image
+              </div>
+            </div>
+          )
+        }
 
         {/* Location Manager */}
         <div className="border border-white/10 rounded-lg p-4 bg-black/20">
@@ -341,17 +391,17 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
             {initialData ? 'Update Record' : 'Save Record'}
           </button>
         </div>
-      </form>
+      </form >
 
       {/* Validation/Error Modal */}
-      <ConfirmModal
+      < ConfirmModal
         isOpen={modalConfig.isOpen}
         onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
         title={modalConfig.title}
         message={modalConfig.message}
         type={modalConfig.type}
       />
-    </div>
+    </div >
   );
 };
 

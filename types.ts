@@ -101,7 +101,7 @@ export const AREA_CONFIG: Record<string, { bays: number, levels: string[] }> = {
 export const ALL_AREAS = Object.keys(AREA_CONFIG);
 
 
-export type ViewState = 'dashboard' | 'entry' | 'outbound' | 'list' | 'history' | 'map' | 'products' | 'move' | 'smart-pick';
+export type ViewState = 'dashboard' | 'entry' | 'outbound' | 'list' | 'history' | 'map' | 'products' | 'move' | 'smart-pick' | 'notes';
 
 // Utility for safe ID generation
 export const generateId = () => {
