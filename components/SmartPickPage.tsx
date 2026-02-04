@@ -56,6 +56,8 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const [isLoaded, setIsLoaded] = useState(false);
+
     // Initial Load
     useEffect(() => {
         const savedData = localStorage.getItem(CONFIG.STORAGE_KEY);
@@ -69,14 +71,15 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
                 console.error("Failed to load local data", e);
             }
         }
+        setIsLoaded(true);
     }, []);
 
     // Save Data Effect
     useEffect(() => {
-        if (Object.keys(manifests).length > 0) {
+        if (isLoaded) {
             localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(manifests));
         }
-    }, [manifests]);
+    }, [manifests, isLoaded]);
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
