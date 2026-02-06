@@ -278,7 +278,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
               className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary outline-none appearance-none"
             >
               <option value="Purchase">Purchase (PO)</option>
-              <option value="Return">Return (RMA)</option>
+              <option value="Return">Return</option>
               <option value="Internal Transfer">Internal Transfer</option>
               <option value="Other">Other</option>
             </select>
@@ -289,7 +289,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Enter PO number, RMA#, or details..."
+              placeholder="Enter PO number or details..."
               className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary outline-none"
             />
           </div>

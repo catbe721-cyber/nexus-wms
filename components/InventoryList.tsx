@@ -82,35 +82,37 @@ const InventoryList: React.FC<InventoryListProps> = ({ inventory, products }) =>
 
     return (
         <div className="space-y-6">
-            <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-xl shadow-[0_0_15px_rgba(0,0,0,0.5)] border border-white/10 flex flex-col md:flex-row justify-between items-center gap-4">
-                <div>
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2 font-display uppercase tracking-wider">
-                        <FileText className="w-6 h-6 text-primary" />
-                        Inventory Summary
-                    </h2>
-                    <p className="text-sm text-slate-400">Aggregated view by product. Click items to see bin breakdown.</p>
-                </div>
-
-                <div className="flex gap-2 w-full md:w-auto">
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2 font-display uppercase tracking-wider">
-                        <List className="w-6 h-6 text-primary" />
-                        Current Stock
-                    </h2>
-                    <p className="text-sm text-slate-400">View real-time inventory levels across all bins.</p>
-                </div>
-
-                <div className="flex flex-wrap gap-2 w-full md:w-auto">
-                    <div className="relative flex-1 md:flex-initial">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" />
-                        <input
-                            type="text"
-                            placeholder="Search item, code, bin..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full md:w-64 pl-9 pr-4 py-2 bg-black/40 border border-white/10 rounded-lg text-sm text-white focus:ring-2 focus:ring-primary outline-none"
-                        />
-
+            <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-xl shadow-[0_0_15px_rgba(0,0,0,0.5)] border border-white/10">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                    <div>
+                        <h2 className="text-xl font-bold text-white flex items-center gap-2 font-display uppercase tracking-wider">
+                            <FileText className="w-6 h-6 text-primary" />
+                            Inventory Summary
+                        </h2>
+                        <p className="text-sm text-slate-400">Aggregated view by product. Click items to see bin breakdown.</p>
                     </div>
+
+                    <div className="flex gap-2 w-full md:w-auto">
+                        <div className="text-right">
+                            <h2 className="text-xl font-bold text-white flex items-center justify-end gap-2 font-display uppercase tracking-wider">
+                                <List className="w-6 h-6 text-primary" />
+                                Current Stock
+                            </h2>
+                            <p className="text-sm text-slate-400">View real-time inventory levels across all bins.</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Search - Full Width */}
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-5 h-5" />
+                    <input
+                        type="text"
+                        placeholder="Search item, code, bin..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-white/10 bg-black/40 rounded-lg text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+                    />
                 </div>
             </div>
 
