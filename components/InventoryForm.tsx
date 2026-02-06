@@ -6,13 +6,14 @@ import ConfirmModal, { ModalType } from './ConfirmModal';
 
 interface InventoryFormProps {
   products: Product[];
+  inventory?: InventoryItem[]; // Added for auto-bin logic
   masterLocations?: MasterLocation[]; // Now optional but recommended
   initialData?: InventoryItem | null;
   onSave: (item: Omit<InventoryItem, 'id' | 'updatedAt'>) => void;
   onCancel: () => void;
 }
 
-const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations = [], initialData, onSave, onCancel }) => {
+const InventoryForm: React.FC<InventoryFormProps> = ({ products, inventory = [], masterLocations = [], initialData, onSave, onCancel }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState<string>('');
@@ -128,10 +129,43 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
       return;
     }
 
-    // Auto-assign to Staging R1 if no location provided
-    const finalLocations = locations.length > 0
-      ? locations
-      : [{ rack: 'S', bay: 1, level: '1' }];
+    // Auto-assign Logic
+    let finalLocations = locations;
+
+    if (finalLocations.length === 0) {
+      // Logic: Find first empty 'T' bin
+      // We need to iterate through all possible T bins: T-1-1 to T-5-5
+      // Simplest way: Generate all T candidates and find first one not in inventory
+
+      let targetBin: InventoryLocation | null = null;
+
+      // Transit Config: 5 Bays, 5 Levels. 
+      // Iterate Bays 1-5, Levels 1-5. 
+      // Order: T-1-1, T-1-2 ... T-1-5, T-2-1 ...
+
+      outerLoop:
+      for (let b = 1; b <= 5; b++) {
+        for (let l = 1; l <= 5; l++) {
+          const levelStr = String(l);
+          // Check if occupied
+          const isOccupied = inventory.some(item =>
+            item.locations.some(loc => loc.rack === 'T' && loc.bay === b && loc.level === levelStr)
+          );
+
+          if (!isOccupied) {
+            targetBin = { rack: 'T', bay: b, level: levelStr };
+            break outerLoop;
+          }
+        }
+      }
+
+      // Fallback if all full -> T-1-1
+      if (!targetBin) {
+        targetBin = { rack: 'T', bay: 1, level: '1' };
+      }
+
+      finalLocations = [targetBin];
+    }
 
     onSave({
       productCode: selectedProduct.productCode,
@@ -360,7 +394,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, masterLocations
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {locations.length === 0 && <span className="text-sm text-slate-500 italic">No specific bins selected. Will default to Staging.</span>}
+            {locations.length === 0 && <span className="text-sm text-slate-500 italic">No specific bins selected. Will auto-assign to next empty <strong>Transit Bin</strong>.</span>}
             {locations.map((loc, idx) => (
               <div key={idx} className={`border rounded-full px-3 py-1 text-sm flex items-center gap-2 shadow-sm ${loc.rack === 'S' || loc.rack.startsWith('STG') ? 'bg-amber-900/30 border-amber-700/50 text-amber-200' : 'bg-slate-800 border-slate-600 text-slate-300'}`}>
                 <span className="font-bold font-mono">

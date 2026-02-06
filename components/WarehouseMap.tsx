@@ -8,10 +8,12 @@ import SearchDropdown from './SearchDropdown';
 interface WarehouseMapProps {
     inventory: InventoryItem[];
     products: Product[];
+    masterLocations?: MasterLocation[];
     onInventoryChange: (action: 'ADD' | 'UPDATE' | 'DELETE' | 'MOVE' | 'COUNT', item: InventoryItem, qtyDiff?: number, moveContext?: any) => void;
+    onToggleBinStatus?: (rack: string, bay: number, level: string) => void;
 }
 
-const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInventoryChange }) => {
+const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, masterLocations = [], onInventoryChange, onToggleBinStatus }) => {
 
     // Default to RACKS (ALL)
     const [selectedRack, setSelectedRack] = useState<string>('ALL');
@@ -65,13 +67,14 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
         setShowDropdown(false); // Reset dropdown when opening/closing
     }, [isAddingItem]);
 
-    const handleCellHover = (e: React.MouseEvent, rack: string, bay: number, level: string, items: InventoryItem[]) => {
+    const handleCellHover = (e: React.MouseEvent, rack: string, bay: number, level: string, items: InventoryItem[], isDisabled?: boolean) => {
         const rect = e.currentTarget.getBoundingClientRect();
         setTooltipData({
             x: rect.right + 10, // Offset to right
             y: rect.top,
             items,
-            title: `${rack}-${bay}-${level}`
+            title: `${rack}-${bay}-${level}`,
+            isDisabled // Pass to state
         });
     };
 
@@ -123,8 +126,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
         const map = new Map<string, InventoryItem[]>();
         inventory.forEach(item => {
             item.locations.forEach(loc => {
-                // Normalize keys to handle string/number mismatches
-                // COMPAT: Map old rack codes to new ones for display
+                // ... (existing logic) ...
                 let rack = loc.rack;
                 if (rack === 'STG') rack = 'S';
                 if (rack === 'ADJ') rack = 'R';
@@ -139,6 +141,19 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
         });
         return map;
     }, [inventory]);
+
+    // NEW: Disabled Lookup
+    const disabledLookup = useMemo(() => {
+        const set = new Set<string>();
+        masterLocations.forEach(l => {
+            if (l.status === 'disabled') {
+                const key = `${l.rack}-${l.bay}-${l.level}`;
+                set.add(key);
+            }
+        });
+        console.log('Disabled Lookup Rebuilt:', Array.from(set));
+        return set;
+    }, [masterLocations]);
 
     // Helper to find items in a specific cell
     const getItemsInCell = (rack: string, bay: number, level: string) => {
@@ -251,6 +266,17 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
         setNewItemCode('');
         setNewItemQty(0);
     };
+
+    // Helper to check if current selected bin is disabled
+    const isSelectedBinDisabled = useMemo(() => {
+        if (!selectedLocation) return false;
+        const loc = masterLocations.find(l =>
+            l.rack === selectedLocation.rack &&
+            l.bay === selectedLocation.bay &&
+            l.level === selectedLocation.level
+        );
+        return loc?.status === 'disabled';
+    }, [selectedLocation, masterLocations]);
 
     const handleUpdateQty = (item: InventoryItem) => {
         if (!canEdit) return;
@@ -573,8 +599,28 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                         >
                             RACKS (A-J)
                         </button>
+                        <button
+                            key="Zone"
+                            onClick={() => { setSelectedRack('Z'); setSelectedLocation(null); }}
+                            className={`px-4 py-1 text-sm font-bold rounded transition-colors whitespace-nowrap ${selectedRack === 'Z'
+                                ? 'bg-amber-500 text-black'
+                                : 'bg-slate-800 text-slate-400 hover:text-amber-400'
+                                }`}
+                        >
+                            Zone (Z)
+                        </button>
+                        <button
+                            key="Transit"
+                            onClick={() => { setSelectedRack('T'); setSelectedLocation(null); }}
+                            className={`px-4 py-1 text-sm font-bold rounded transition-colors whitespace-nowrap ${selectedRack === 'T'
+                                ? 'bg-amber-500 text-black'
+                                : 'bg-slate-800 text-slate-400 hover:text-amber-400'
+                                }`}
+                        >
+                            Transit (T)
+                        </button>
 
-                        {['Z', 'S', 'R'].map(zone => (
+                        {['S', 'R'].map(zone => (
                             <button
                                 key={zone}
                                 onClick={() => { setSelectedRack(zone); setSelectedLocation(null); }}
@@ -678,28 +724,40 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                                         const isMatch = mapSearch && items.some(i => smartSearch(i, ['productCode', 'productName'], mapSearch));
                                                         const isDimmed = mapSearch && !isMatch;
 
+                                                        const key = `${rack}-${bay}-${levelView}`;
+                                                        const isDisabled = disabledLookup.has(key);
+
                                                         return (
                                                             <div key={`${rack}-${bay}-container`} className={`w-full ${isGapBelow ? 'mb-1' : ''}`}>
                                                                 <div
-                                                                    key={`${rack}-${bay}-${levelView}`}
-                                                                    draggable={hasItems && canEdit}
+                                                                    key={key}
+                                                                    draggable={!isDisabled && hasItems && canEdit}
                                                                     onDragStart={(e) => handleCellDragStart(e, rack, bay, levelView)}
                                                                     onClick={() => setSelectedLocation({ rack, bay, level: levelView })}
-                                                                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('ring-2', 'ring-green-400'); }}
+                                                                    onDragOver={(e) => { e.preventDefault(); if (!isDisabled) e.currentTarget.classList.add('ring-2', 'ring-green-400'); }}
                                                                     onDragLeave={(e) => { e.currentTarget.classList.remove('ring-2', 'ring-green-400'); }}
-                                                                    onDrop={(e) => { e.currentTarget.classList.remove('ring-2', 'ring-green-400'); handleDropOnBin(e, rack, bay, levelView); }}
-                                                                    onMouseEnter={(e) => handleCellHover(e, rack, bay, levelView, items)}
+                                                                    onDrop={(e) => { e.currentTarget.classList.remove('ring-2', 'ring-green-400'); if (!isDisabled) handleDropOnBin(e, rack, bay, levelView); }}
+                                                                    onMouseEnter={(e) => handleCellHover(e, rack, bay, levelView, items, isDisabled)}
                                                                     onMouseLeave={handleCellLeave}
                                                                     className={`
                                                                     relative group cursor-pointer border rounded-sm transition-all h-8 w-full flex items-center justify-center
-                                                                    ${isSelected ? 'ring-2 ring-primary border-primary z-10' : 'border-white/5'}
-                                                                    ${isMatch ? 'ring-2 ring-yellow-400 bg-yellow-400/20 z-20 shadow-[0_0_10px_rgba(250,204,21,0.5)]' : ''}
-                                                                    ${isDimmed ? 'opacity-20 grayscale' : ''}
-                                                                    ${!isMatch && hasItems
+                                                                    ${isDisabled
+                                                                            ? 'bg-red-500/20 border-red-500/50'
+                                                                            : ''}
+                                                                    ${isSelected
+                                                                            ? (isDisabled ? 'ring-2 ring-red-500 border-red-500 z-10 shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'ring-2 ring-primary border-primary z-10 shadow-[0_0_10px_rgba(139,92,246,0.5)]')
+                                                                            : (!isDisabled ? 'border-white/5' : '')}
+                                                                    ${!isDisabled && isMatch ? 'ring-2 ring-yellow-400 bg-yellow-400/20 z-20 shadow-[0_0_10px_rgba(250,204,21,0.5)]' : ''}
+                                                                    ${!isDisabled && isDimmed ? 'opacity-20 grayscale' : ''}
+                                                                    ${!isDisabled && !isMatch && hasItems
                                                                             ? 'bg-primary/20 hover:bg-primary/30 border-primary/30 text-primary-200'
-                                                                            : !isMatch ? 'bg-white/5 hover:bg-white/10 text-slate-600' : ''}
+                                                                            : !isDisabled && !isMatch ? 'bg-white/5 hover:bg-white/10 text-slate-600' : ''}
+                                                                    ${isDisabled ? 'opacity-100 cursor-not-allowed' : ''}
                                                                 `}
                                                                 >
+                                                                    {isDisabled && (
+                                                                        <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(239,68,68,0.2)_25%,transparent_25%,transparent_50%,rgba(239,68,68,0.2)_50%,rgba(239,68,68,0.2)_75%,transparent_75%,transparent_100%)] bg-[length:8px_8px] z-0"></div>
+                                                                    )}
                                                                     <span className="text-[10px] font-bold absolute left-1 top-1/2 -translate-y-1/2 opacity-30 pointer-events-none">{bay}</span>
 
                                                                     {hasItems ? (
@@ -757,29 +815,41 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                             const isMatch = mapSearch && items.some(i => smartSearch(i, ['productCode', 'productName'], mapSearch));
                                             const isDimmed = mapSearch && !isMatch;
 
+                                            const key = `${selectedRack}-${bay}-${level}`;
+                                            const isDisabled = disabledLookup.has(key);
+
                                             return (
                                                 <div
-                                                    key={`${selectedRack}-${bay}-${level}`}
-                                                    draggable={hasItems && canEdit}
+                                                    key={key}
+                                                    draggable={!isDisabled && hasItems && canEdit}
                                                     onDragStart={(e) => handleCellDragStart(e, selectedRack, bay, level)}
                                                     onClick={() => setSelectedLocation({ rack: selectedRack, bay, level })}
-                                                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('ring-2', 'ring-green-400'); }}
+                                                    onDragOver={(e) => { e.preventDefault(); if (!isDisabled) e.currentTarget.classList.add('ring-2', 'ring-green-400'); }}
                                                     onDragLeave={(e) => { e.currentTarget.classList.remove('ring-2', 'ring-green-400'); }}
-                                                    onDrop={(e) => { e.currentTarget.classList.remove('ring-2', 'ring-green-400'); handleDropOnBin(e, selectedRack, bay, level); }}
-                                                    onMouseEnter={(e) => handleCellHover(e, selectedRack, bay, level, items)}
+                                                    onDrop={(e) => { e.currentTarget.classList.remove('ring-2', 'ring-green-400'); if (!isDisabled) handleDropOnBin(e, selectedRack, bay, level); }}
+                                                    onMouseEnter={(e) => handleCellHover(e, selectedRack, bay, level, items, isDisabled)}
                                                     onMouseLeave={handleCellLeave}
                                                     className={`
                                                          mx-2 border rounded-sm cursor-pointer transition-all relative group
                                                          flex items-center justify-center text-xs w-10 h-10 aspect-square
                                                          ${level === 'Floor' ? 'mr-8' : ''}
-                                                         ${isSelected ? 'ring-2 ring-primary border-primary z-10 shadow-[0_0_10px_rgba(139,92,246,0.5)]' : 'border-white/5'}
-                                                         ${isMatch ? 'ring-2 ring-yellow-400 bg-yellow-400/20 z-20 shadow-[0_0_10px_rgba(250,204,21,0.5)]' : ''}
-                                                         ${isDimmed ? 'opacity-20 grayscale' : ''}
-                                                         ${!isMatch && hasItems
+                                                         ${isDisabled
+                                                            ? 'bg-red-500/20 border-red-500/50'
+                                                            : ''}
+                                                         ${isSelected
+                                                            ? (isDisabled ? 'ring-2 ring-red-500 border-red-500 z-10 shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'ring-2 ring-primary border-primary z-10 shadow-[0_0_10px_rgba(139,92,246,0.5)]')
+                                                            : (!isDisabled ? 'border-white/5' : '')}
+                                                         ${!isDisabled && isMatch ? 'ring-2 ring-yellow-400 bg-yellow-400/20 z-20 shadow-[0_0_10px_rgba(250,204,21,0.5)]' : ''}
+                                                         ${!isDisabled && isDimmed ? 'opacity-20 grayscale' : ''}
+                                                         ${!isDisabled && !isMatch && hasItems
                                                             ? 'bg-primary/20 hover:bg-primary/30 border-primary/30 text-primary-200'
-                                                            : !isMatch ? 'bg-white/5 hover:bg-white/10 text-slate-600' : ''}
+                                                            : !isDisabled && !isMatch ? 'bg-white/5 hover:bg-white/10 text-slate-600' : ''}
+                                                         ${isDisabled ? 'opacity-100 cursor-not-allowed' : ''}
                                                      `}
                                                 >
+                                                    {isDisabled && (
+                                                        <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(239,68,68,0.2)_25%,transparent_25%,transparent_50%,rgba(239,68,68,0.2)_50%,rgba(239,68,68,0.2)_75%,transparent_75%,transparent_100%)] bg-[length:8px_8px] z-0"></div>
+                                                    )}
                                                     {hasItems ? (
                                                         <div className="flex flex-col items-center transition-transform duration-200 group-hover:scale-125">
                                                             <Package className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-primary'}`} />
@@ -812,27 +882,39 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                                     const isMatch = mapSearch && items.some(i => smartSearch(i, ['productCode', 'productName'], mapSearch));
                                                     const isDimmed = mapSearch && !isMatch;
 
+                                                    const key = `${selectedRack}-${bay}-${level}`;
+                                                    const isDisabled = disabledLookup.has(key);
+
                                                     return (
                                                         <div
-                                                            key={`${selectedRack}-${bay}-${level}`}
-                                                            draggable={hasItems && canEdit}
+                                                            key={key}
+                                                            draggable={!isDisabled && hasItems && canEdit}
                                                             onDragStart={(e) => handleCellDragStart(e, selectedRack, bay, level)}
                                                             onClick={() => setSelectedLocation({ rack: selectedRack, bay, level })}
-                                                            onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('ring-2', 'ring-green-400'); }}
+                                                            onDragOver={(e) => { e.preventDefault(); if (!isDisabled) e.currentTarget.classList.add('ring-2', 'ring-green-400'); }}
                                                             onDragLeave={(e) => { e.currentTarget.classList.remove('ring-2', 'ring-green-400'); }}
-                                                            onDrop={(e) => { e.currentTarget.classList.remove('ring-2', 'ring-green-400'); handleDropOnBin(e, selectedRack, bay, level); }}
-                                                            onMouseEnter={(e) => handleCellHover(e, selectedRack, bay, level, items)}
+                                                            onDrop={(e) => { e.currentTarget.classList.remove('ring-2', 'ring-green-400'); if (!isDisabled) handleDropOnBin(e, selectedRack, bay, level); }}
+                                                            onMouseEnter={(e) => handleCellHover(e, selectedRack, bay, level, items, isDisabled)}
                                                             onMouseLeave={handleCellLeave}
                                                             className={`
                                                                 relative group cursor-pointer border rounded-sm transition-all h-8 w-full flex items-center justify-center
-                                                                ${isSelected ? 'ring-2 ring-primary border-primary z-10' : 'border-white/5'}
-                                                                ${isMatch ? 'ring-2 ring-yellow-400 bg-yellow-400/20 z-20 shadow-[0_0_10px_rgba(250,204,21,0.5)]' : ''}
-                                                                ${isDimmed ? 'opacity-20 grayscale' : ''}
-                                                                ${!isMatch && hasItems
+                                                                ${isDisabled
+                                                                    ? 'bg-red-500/20 border-red-500/50'
+                                                                    : ''}
+                                                                ${isSelected
+                                                                    ? (isDisabled ? 'ring-2 ring-red-500 border-red-500 z-10 shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'ring-2 ring-primary border-primary z-10 shadow-[0_0_10px_rgba(139,92,246,0.5)]')
+                                                                    : (!isDisabled ? 'border-white/5' : '')}
+                                                                ${!isDisabled && isMatch ? 'ring-2 ring-yellow-400 bg-yellow-400/20 z-20 shadow-[0_0_10px_rgba(250,204,21,0.5)]' : ''}
+                                                                ${!isDisabled && isDimmed ? 'opacity-20 grayscale' : ''}
+                                                                ${!isDisabled && !isMatch && hasItems
                                                                     ? 'bg-primary/20 hover:bg-primary/30 border-primary/30 text-primary-200'
-                                                                    : !isMatch ? 'bg-white/5 hover:bg-white/10 text-slate-600' : ''}
+                                                                    : !isDisabled && !isMatch ? 'bg-white/5 hover:bg-white/10 text-slate-600' : ''}
+                                                                ${isDisabled ? 'opacity-100 cursor-not-allowed' : ''}
                                                             `}
                                                         >
+                                                            {isDisabled && (
+                                                                <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(239,68,68,0.2)_25%,transparent_25%,transparent_50%,rgba(239,68,68,0.2)_50%,rgba(239,68,68,0.2)_75%,transparent_75%,transparent_100%)] bg-[length:8px_8px] z-0"></div>
+                                                            )}
                                                             {/* Level Number (Faint) */}
                                                             <span className="text-[10px] font-bold absolute left-1 top-1/2 -translate-y-1/2 opacity-30 pointer-events-none">
                                                                 {level === 'Floor' ? 'F' : level}
@@ -841,8 +923,8 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                                             {/* Content */}
                                                             {hasItems ? (
                                                                 <div className="flex flex-col items-center ml-2 transition-transform duration-200 group-hover:scale-125">
-                                                                    <Package className="w-3 h-3 text-primary" />
-                                                                    <span className="text-[10px] font-bold leading-none text-white">{items.length}</span>
+                                                                    <Package className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-primary'}`} />
+                                                                    <span className={`text-[10px] font-bold leading-none ${isSelected ? 'text-white' : 'text-primary-100'}`}>{items.length}</span>
                                                                 </div>
                                                             ) : (
                                                                 <span className="opacity-0 group-hover:opacity-30 text-[8px] text-slate-400">.</span>
@@ -868,6 +950,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                     <div className="flex items-center gap-2"><div className="w-4 h-4 bg-primary/20 border border-primary/30 rounded"></div> Occupied</div>
                     <div className="flex items-center gap-2"><div className="w-4 h-4 bg-white/5 border border-white/10 rounded"></div> Empty</div>
                     <div className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-primary rounded"></div> Selected</div>
+                    <div className="flex items-center gap-2"><div className="w-4 h-4 bg-red-500/20 border border-red-500/50 rounded bg-[linear-gradient(45deg,rgba(239,68,68,0.2)_25%,transparent_25%,transparent_50%,rgba(239,68,68,0.2)_50%,rgba(239,68,68,0.2)_75%,transparent_75%,transparent_100%)] bg-[length:4px_4px]"></div> Disabled</div>
                     <div className="flex items-center gap-2 text-slate-400 text-xs ml-auto">
                         {selectedRack === 'ALL'
                             ? `Overview Mode - Showing Level: ${levelView === 'Floor' ? 'Floor' : levelView}`
@@ -893,11 +976,29 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                                     {selectedLocation.rack}-{selectedLocation.bay}-{selectedLocation.level}
                                 </span>
                             </div>
+                            {canEdit && onToggleBinStatus && (
+                                <button
+                                    onClick={() => onToggleBinStatus(selectedLocation.rack, selectedLocation.bay, selectedLocation.level)}
+                                    className={`relative z-10 px-3 py-1.5 rounded text-xs font-bold border transition-colors ${isSelectedBinDisabled
+                                        ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 hover:bg-amber-500/30'
+                                        : 'bg-red-500/20 text-red-400 border-red-500/50 hover:bg-red-500/30'
+                                        }`}
+                                >
+                                    {isSelectedBinDisabled ? 'Enable Bin' : 'Disable Bin'}
+                                </button>
+                            )}
                         </div>
+
+                        {isSelectedBinDisabled && (
+                            <div className="mb-4 p-2 bg-amber-500/10 border border-amber-500/20 rounded text-amber-500 text-xs font-bold text-center uppercase tracking-wide">
+                                <AlertTriangle className="w-3 h-3 inline-block mr-2" />
+                                This bin is currently disabled
+                            </div>
+                        )}
 
                         <div className="p-3">
                             {/* Persistent Add Item Form (Outside Scroll) */}
-                            {canEdit && (
+                            {canEdit && !isSelectedBinDisabled && (
                                 <div className="mb-4">
                                     {isAddingItem ? (
                                         <div className="bg-slate-900 border border-white/10 p-3 rounded-lg shadow-inner">
@@ -1195,8 +1296,13 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, onInve
                         transform: 'translateY(-50%)', // Center vertically relative to mouse/trigger
                     }}
                 >
-                    <div className="font-bold text-amber-500 border-b border-white/10 pb-1 mb-2 text-base">
-                        {tooltipData.title}
+                    <div className="font-bold text-amber-500 border-b border-white/10 pb-1 mb-2 text-base flex justify-between items-center">
+                        <span>{tooltipData.title}</span>
+                        {tooltipData.isDisabled && (
+                            <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                DISABLED
+                            </span>
+                        )}
                     </div>
                     {tooltipData.items.length > 0 ? (
                         tooltipData.items.map((item, idx) => {

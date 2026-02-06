@@ -27,6 +27,7 @@ export interface MasterLocation {
   rack: string;
   bay: number;
   level: string;
+  status?: 'active' | 'disabled'; // New status field
 }
 
 export interface InventoryItem {
@@ -91,6 +92,12 @@ export const AREA_CONFIG: Record<string, { bays: number, levels: string[] }> = {
   'Z': {
     bays: 4,
     levels: Array.from({ length: 8 }, (_, i) => String(8 - i))
+  },
+
+  // Transit Area (T), 5 Bays, 5 Levels
+  'T': {
+    bays: 5,
+    levels: ['5', '4', '3', '2', '1']
   },
 
   // Standard Racks (A-J)

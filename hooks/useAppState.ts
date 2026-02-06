@@ -78,19 +78,26 @@ export function useAppState() {
 
     // Re-generate master locations if they are stale or missing to ensure new areas exist
     const [masterLocations, setMasterLocations] = useState<MasterLocation[]>(() => {
-        // Always regenerate in dev for now to pick up new structure (STG-01 etc)
+        const saved = localStorage.getItem('nexuswms_locations_v3');
+        const savedLocs: MasterLocation[] = saved ? JSON.parse(saved) : [];
+        const savedMap = new Map(savedLocs.map(l => [`${l.rack}-${l.bay}-${l.level}`, l]));
+
         const locs: MasterLocation[] = [];
 
         // Iterate over all configured areas to generate locations
         Object.entries(AREA_CONFIG).forEach(([rackName, config]) => {
             for (let b = 1; b <= config.bays; b++) {
                 config.levels.forEach(l => {
+                    const key = `${rackName}-${b}-${l}`;
+                    const existing = savedMap.get(key);
+
                     locs.push({
-                        id: generateId(),
-                        binCode: `${rackName}-${b}-${l}`,
+                        id: existing?.id || generateId(),
+                        binCode: key,
                         rack: rackName,
                         bay: b,
-                        level: l
+                        level: l,
+                        status: existing?.status || 'active' // Persist status
                     });
                 });
             }
@@ -537,6 +544,16 @@ export function useAppState() {
         setProducts(newProducts);
     };
 
+    const handleToggleBinStatus = (rack: string, bay: number, level: string) => {
+        setMasterLocations(prev => prev.map(loc => {
+            if (loc.rack === rack && loc.bay === bay && loc.level === level) {
+                const newStatus = loc.status === 'disabled' ? 'active' : 'disabled';
+                return { ...loc, status: newStatus };
+            }
+            return loc;
+        }));
+    };
+
     return {
         inventory,
         products,
@@ -567,6 +584,7 @@ export function useAppState() {
             handleMoveStock,
             handleSyncGas,
             handleUpdateProducts,
+            handleToggleBinStatus,
             showAlert,
             closeModal
         }

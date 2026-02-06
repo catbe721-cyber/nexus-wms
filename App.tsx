@@ -275,6 +275,7 @@ function App() {
             view === 'entry' && (
               <InventoryForm
                 products={products}
+                inventory={inventory}
                 masterLocations={masterLocations}
                 initialData={editingItem}
                 onSave={handleSaveInventory}
@@ -338,7 +339,9 @@ function App() {
               <WarehouseMap
                 inventory={inventory}
                 products={products}
+                masterLocations={masterLocations}
                 onInventoryChange={handleMapInventoryChange}
+                onToggleBinStatus={actions.handleToggleBinStatus}
               />
             )
           }
