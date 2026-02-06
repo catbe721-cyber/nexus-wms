@@ -245,14 +245,14 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ inventory, transactio
                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Top Movers</h3>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={topMovers.slice(0, 5).map(i => ({ name: i.name.substring(0, 10) + '...', qty: i.qty }))}>
-                                <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                                <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                            <BarChart layout="vertical" data={topMovers.slice(0, 5).map(i => ({ name: i.name.substring(0, 10) + '...', qty: i.qty }))}>
+                                <XAxis type="number" dataKey="qty" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                                <YAxis type="category" dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} width={80} />
                                 <Tooltip
                                     cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                                     contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
                                 />
-                                <Bar dataKey="qty" fill="#10b981" radius={[4, 4, 0, 0]} name="Quantity" />
+                                <Bar dataKey="qty" fill="#10b981" radius={[0, 4, 4, 0]} name="Quantity" />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -263,14 +263,14 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ inventory, transactio
                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Stagnant Stock (Age)</h3>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={deadStock.slice(0, 5).map((i: any) => ({ name: i.productName.substring(0, 10) + '...', days: Math.floor((Date.now() - i.updatedAt) / (1000 * 60 * 60 * 24)) }))}>
-                                <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                                <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                            <BarChart layout="vertical" data={deadStock.slice(0, 5).map((i: any) => ({ name: i.productName.substring(0, 10) + '...', days: Math.floor((Date.now() - i.updatedAt) / (1000 * 60 * 60 * 24)) }))}>
+                                <XAxis type="number" dataKey="days" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                                <YAxis type="category" dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} width={80} />
                                 <Tooltip
                                     cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                                     contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
                                 />
-                                <Bar dataKey="days" fill="#ef4444" radius={[4, 4, 0, 0]} name="Days Old" />
+                                <Bar dataKey="days" fill="#ef4444" radius={[0, 4, 4, 0]} name="Days Old" />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
