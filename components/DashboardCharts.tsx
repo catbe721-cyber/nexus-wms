@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { InventoryItem, Transaction, AREA_CONFIG, Product } from '../types';
+import { InventoryItem, Transaction, Product } from '../types';
+import { AREA_CONFIG } from '../consts/warehouse';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, AreaChart, Area, CartesianGrid } from 'recharts';
 import { format } from 'date-fns';
 
@@ -117,7 +118,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ inventory, transactio
             {/* Row 1: Pies & Trends */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Activity Trends Chart */}
-                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 backdrop-blur-md lg:col-span-1">
+                <div className="bg-slate-900/60 p-6 rounded-xl border border-white/10 backdrop-blur-md lg:col-span-1 shadow-[0_0_15px_rgba(0,0,0,0.3)]">
                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Volume Trends (7 Days)</h3>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
@@ -146,7 +147,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ inventory, transactio
                 </div>
 
                 {/* Category Chart */}
-                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 backdrop-blur-md">
+                <div className="bg-slate-900/60 p-6 rounded-xl border border-white/10 backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.3)]">
                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Slot Category</h3>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
@@ -183,7 +184,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ inventory, transactio
                 </div>
 
                 {/* Department Chart */}
-                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 backdrop-blur-md">
+                <div className="bg-slate-900/60 p-6 rounded-xl border border-white/10 backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.3)]">
                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Slot Dept</h3>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
@@ -223,7 +224,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ inventory, transactio
             {/* Row 2: Bars */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Rack Utilization Chart */}
-                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 backdrop-blur-md">
+                <div className="bg-slate-900/60 p-6 rounded-xl border border-white/10 backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.3)]">
                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Slot Occupancy</h3>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
@@ -241,7 +242,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ inventory, transactio
                 </div>
 
                 {/* Top Movers Bar Chart */}
-                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 backdrop-blur-md">
+                <div className="bg-slate-900/60 p-6 rounded-xl border border-white/10 backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.3)]">
                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Top Movers</h3>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
@@ -259,7 +260,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ inventory, transactio
                 </div>
 
                 {/* Stagnant Stock Bar Chart */}
-                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 backdrop-blur-md">
+                <div className="bg-slate-900/60 p-6 rounded-xl border border-white/10 backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.3)]">
                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Stagnant Stock (Age)</h3>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">

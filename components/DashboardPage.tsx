@@ -61,17 +61,17 @@ const DashboardPage: React.FC<DashboardProps> = ({
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 hover:border-accent/50 transition-all backdrop-blur-md group">
+                <div className="bg-slate-900/60 p-6 rounded-xl border border-white/10 hover:border-accent/50 transition-all backdrop-blur-md group shadow-[0_0_15px_rgba(0,0,0,0.3)]">
                     <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1 group-hover:text-accent transition-colors">Products</p>
                     <p className="text-4xl font-bold text-white font-display">{inventorySummary.length}</p>
                 </div>
-                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 hover:border-red-500/50 transition-all backdrop-blur-md group">
+                <div className="bg-slate-900/60 p-6 rounded-xl border border-white/10 hover:border-red-500/50 transition-all backdrop-blur-md group shadow-[0_0_15px_rgba(0,0,0,0.3)]">
                     <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1 group-hover:text-red-400 transition-colors">Low Stock</p>
                     <p className="text-4xl font-bold text-red-400 font-display">
                         {lowStockItems.length}
                     </p>
                 </div>
-                <div className="bg-slate-800/40 p-6 rounded-xl border border-white/5 hover:border-blue-500/50 transition-all backdrop-blur-md group">
+                <div className="bg-slate-900/60 p-6 rounded-xl border border-white/10 hover:border-blue-500/50 transition-all backdrop-blur-md group shadow-[0_0_15px_rgba(0,0,0,0.3)]">
                     <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1 group-hover:text-blue-400 transition-colors">Occupied Slots</p>
                     <p className="text-4xl font-bold text-blue-400 font-display">
                         {inventory.reduce((acc, i) => acc + i.locations.length, 0)}

@@ -313,6 +313,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Category</th>
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Dept</th>
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Unit</th>
+                <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Min Stock</th>
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Updated</th>
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs text-right">Actions</th>
               </tr>
@@ -342,6 +343,11 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
                     </span>
                   </td>
                   <td className="px-6 py-3 text-slate-400 text-xs">{p.defaultUnit || 'pcs'}</td>
+                  <td className="px-6 py-3">
+                    <span className={`px-2 py-1 rounded text-[10px] font-bold border ${p.minStockLevel && p.minStockLevel > 0 ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' : 'bg-slate-800 text-slate-600 border-white/5'}`}>
+                      {p.minStockLevel || 0}
+                    </span>
+                  </td>
                   <td className="px-6 py-3 text-slate-500 text-xs font-mono">
                     {p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : '-'}
                   </td>
@@ -369,7 +375,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
               ))}
               {filteredProducts.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="p-10 text-center text-slate-500">
+                  <td colSpan={9} className="p-10 text-center text-slate-500">
                     No products found. Add one or adjust search.
                   </td>
                 </tr>
@@ -556,7 +562,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
               </div>
             </form>
           </div>
-        </div >
+        </div>
       )}
 
       {/* Global Modal */}
@@ -571,7 +577,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
 
       {/* Global Fixed Tooltip */}
 
-    </div >
+    </div>
   );
 };
 

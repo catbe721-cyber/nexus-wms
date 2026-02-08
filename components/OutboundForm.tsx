@@ -733,7 +733,7 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
         message={modalConfig.message}
         type={modalConfig.type}
       />
-    </div >
+    </div>
   );
 };
 

@@ -27,7 +27,8 @@ import {
   MessageSquare
 } from 'lucide-react';
 
-import { Product, InventoryItem, ViewState, InventoryLocation, Transaction, MasterLocation, AREA_CONFIG, generateId, SavedPickList } from './types';
+import { Product, InventoryItem, ViewState, InventoryLocation, Transaction, MasterLocation, generateId, SavedPickList } from './types';
+import { AREA_CONFIG } from './consts/warehouse';
 import InventoryForm from './components/InventoryForm';
 import OutboundForm from './components/OutboundForm';
 import WarehouseMap from './components/WarehouseMap';
@@ -41,6 +42,7 @@ import StockMovementForm from './components/StockMovementForm';
 import ConfirmModal, { ModalType } from './components/ConfirmModal';
 import SidebarItem from './components/SidebarItem';
 import DashboardPage from './components/DashboardPage';
+import ItemAnalyticsPage from './components/ItemAnalyticsPage';
 import { GASService } from './services/gasApi';
 
 // Updated initial data based on user request - USING NEW SCHEMA (productCode only)
@@ -121,8 +123,8 @@ function App() {
           </div>
 
           <nav className="flex-1 space-y-1 overflow-y-auto">
-            {/* Operational Section */}
-            <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Operations</p>
+            {/* Overview Section */}
+            <p className="px-4 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 mt-2">Overview</p>
             <SidebarItem
               id="dashboard"
               icon={LayoutDashboard}
@@ -134,6 +136,21 @@ function App() {
                 setSidebarOpen(false);
               }}
             />
+            <SidebarItem
+              id="analytics"
+              icon={Sparkles}
+              label="Item Analytics"
+              active={view === 'analytics'}
+              onClick={() => {
+                setView('analytics');
+                setSidebarOpen(false);
+              }}
+            />
+
+            <div className="my-4 border-t border-white/5 mx-4"></div>
+
+            {/* Operational Section */}
+            <p className="px-4 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Operations</p>
             <SidebarItem
               id="entry"
               icon={PackagePlus}
@@ -174,11 +191,12 @@ function App() {
                 setView('smart-pick');
                 setSidebarOpen(false);
               }}
-            />{/* INTEGRATION POINT */}
-            <div className="my-6"></div>
+            />
+
+            <div className="my-4 border-t border-white/5 mx-4"></div>
 
             {/* Inventory Section */}
-            <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Inventory</p>
+            <p className="px-4 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Inventory</p>
             <SidebarItem
               id="list"
               icon={FileText}
@@ -209,6 +227,21 @@ function App() {
                 setSidebarOpen(false);
               }}
             />
+
+            <div className="my-4 border-t border-white/5 mx-4"></div>
+
+            {/* Master Data Section */}
+            <p className="px-4 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">System & Data</p>
+            <SidebarItem
+              id="products"
+              icon={Boxes}
+              label="Product Master"
+              active={view === 'products'}
+              onClick={() => {
+                setView('products');
+                setSidebarOpen(false);
+              }}
+            />
             <SidebarItem
               id="notes"
               icon={MessageSquare}
@@ -219,40 +252,25 @@ function App() {
                 setSidebarOpen(false);
               }}
             />
-            <div className="my-6"></div>
-
-            {/* Master Data Section */}
-            <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Master Data</p>
-            <SidebarItem
-              id="products"
-              icon={Boxes}
-              label="Products"
-              active={view === 'products'}
-              onClick={() => {
-                setView('products');
-                setSidebarOpen(false);
-              }}
-            />
-            <div className="my-4 border-t border-slate-100"></div>
           </nav>
 
 
-        </div >
-      </div >
+        </div>
+      </div>
 
       {/* Main Content */}
-      < div className="flex-1 flex flex-col overflow-hidden relative z-10" >
+      <div className="flex-1 flex flex-col overflow-hidden relative z-10">
         {/* Header (Mobile Only) */}
-        < div className="lg:hidden bg-slate-900/80 backdrop-blur-md border-b border-white/10 p-4 flex justify-between items-center sticky top-0 z-30" >
+        <div className="lg:hidden bg-slate-900/80 backdrop-blur-md border-b border-white/10 p-4 flex justify-between items-center sticky top-0 z-30">
           <button onClick={() => setSidebarOpen(true)} className="p-2 hover:bg-white/10 rounded-md">
             <Menu className="w-6 h-6 text-slate-300" />
           </button>
           <span className="font-bold text-white font-display text-xl">NEXUS<span className="text-primary">WMS</span></span>
           <div className="w-10"></div>
-        </div >
+        </div>
 
         {/* Content Area */}
-        < main className="flex-1 overflow-auto p-4 md:p-8" >
+        <main className="flex-1 overflow-auto p-4 md:p-8">
 
           {/* Dashboard View */}
           {/* Dashboard View */}
@@ -266,6 +284,17 @@ function App() {
                 topMovers={topMovers}
                 deadStock={deadStock}
                 transactions={transactions}
+              />
+            )
+          }
+
+          {/* Analytics View */}
+          {
+            view === 'analytics' && (
+              <ItemAnalyticsPage
+                inventory={inventory}
+                transactions={transactions}
+                products={products}
               />
             )
           }
@@ -384,11 +413,11 @@ function App() {
             )
           }
 
-        </main >
-      </div >
+        </main>
+      </div>
 
       {/* Global Modal */}
-      < ConfirmModal
+      <ConfirmModal
         isOpen={modalConfig.isOpen}
         onClose={closeModal}
         onConfirm={modalConfig.onConfirm}

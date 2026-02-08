@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Product, InventoryItem, MasterLocation } from '../types';
+import { InventoryItem, InventoryLocation, Product, MasterLocation, generateId } from '../types';
+import { AREA_CONFIG, LEVELS, BAYS_PER_RACK } from '../consts/warehouse';
 import { ArrowRightLeft, Search, MapPin, Box, ArrowRight, CheckCircle, Check } from 'lucide-react';
 import { smartSearch, filterBinCodes, getEmbedLink } from '../utils';
 
@@ -95,7 +96,7 @@ const StockMovementForm: React.FC<StockMovementFormProps> = ({
         onMove(selectedSourceItem.id, customDest, moveQty);
 
         // Show Success
-        setSuccessMessage(`Moved ${moveQty} ${selectedSourceItem.unit} to ${destinationSearch}`);
+        setSuccessMessage(`Moved ${moveQty} ${selectedSourceItem.unit} to ${destinationSearch} `);
 
         // Reset Form
         setSelectedSourceItem(null);
@@ -172,7 +173,7 @@ const StockMovementForm: React.FC<StockMovementFormProps> = ({
                                             </div>
                                             <div className="text-right">
                                                 <span className="block font-bold text-white bg-slate-800 px-2 py-1 rounded border border-white/10 text-xs">
-                                                    {item.locations.map(l => `${l.rack}-${l.bay}-${l.level}`).join(', ')}
+                                                    {item.locations.map(l => `${l.rack} -${l.bay} -${l.level} `).join(', ')}
                                                 </span>
                                                 <span className="text-xs text-blue-400 mt-1 block font-mono">{item.quantity} {item.unit}</span>
                                             </div>

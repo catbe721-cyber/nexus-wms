@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Product, InventoryItem, InventoryLocation, MasterLocation } from '../types';
+import { Product, InventoryItem, MasterLocation, InventoryLocation, generateId } from '../types';
+import { AREA_CONFIG, LEVELS, BAYS_PER_RACK } from '../consts/warehouse';
 import { smartSearch, filterBinCodes, getEmbedLink } from '../utils';
 import { X, CheckCircle, Save, MapPin, Lock, Check } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
@@ -53,7 +54,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, inventory = [],
       } as Product;
 
       setSelectedProduct(product);
-      setSearchTerm(`${initialData.productCode} - ${initialData.productName}`);
+      setSearchTerm(`${initialData.productCode} - ${initialData.productName} `);
       setQuantity(initialData.quantity);
       setUnit(initialData.unit);
       setCategory(initialData.category);
@@ -99,7 +100,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, inventory = [],
 
   const handleSelectProduct = (product: Product) => {
     setSelectedProduct(product);
-    setSearchTerm(`${product.productCode} - ${product.name}`);
+    setSearchTerm(`${product.productCode} - ${product.name} `);
     if (!initialData) {
       setCategory(product.defaultCategory || 'OTH');
       setUnit(product.defaultUnit || 'pcs');
@@ -174,13 +175,13 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, inventory = [],
       unit,
       category,
 
-      notes: `[${inboundType}] ${notes}`,
+      notes: `[${inboundType}] ${notes} `,
       locations: finalLocations
     });
 
     // Success State & Reset
-    const locString = finalLocations.map(l => `${l.rack}-${l.bay}`).join(', ');
-    setSuccessMessage(`Received ${quantity} ${unit} of ${selectedProduct.name} at ${locString}`);
+    const locString = finalLocations.map(l => `${l.rack} -${l.bay} `).join(', ');
+    setSuccessMessage(`Received ${quantity} ${unit} of ${selectedProduct.name} at ${locString} `);
 
     if (!initialData) {
       // Only reset if it's a new entry (not editing existing)
@@ -227,7 +228,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, inventory = [],
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
-              if (selectedProduct && e.target.value !== `${selectedProduct.productCode} - ${selectedProduct.name}`) {
+              if (selectedProduct && e.target.value !== `${selectedProduct.productCode} - ${selectedProduct.name} `) {
                 setSelectedProduct(null); // Reset selection if typing new search
               }
             }}
@@ -425,17 +426,17 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, inventory = [],
             {initialData ? 'Update Record' : 'Save Record'}
           </button>
         </div>
-      </form >
+      </form>
 
       {/* Validation/Error Modal */}
-      < ConfirmModal
+      <ConfirmModal
         isOpen={modalConfig.isOpen}
         onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
         title={modalConfig.title}
         message={modalConfig.message}
         type={modalConfig.type}
       />
-    </div >
+    </div>
   );
 };
 

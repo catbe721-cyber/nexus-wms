@@ -1,9 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { InventoryItem, InventoryLocation, STANDARD_RACKS, AREA_CONFIG, Product, generateId, MasterLocation, BAYS_PER_RACK, LEVELS } from '../types';
+import { InventoryItem, Product, MasterLocation, InventoryLocation, ViewState, generateId } from '../types';
+import { AREA_CONFIG, LEVELS, BAYS_PER_RACK, ALL_AREAS, STANDARD_RACKS } from '../consts/warehouse';
 import { getCategoryColor, smartSearch, getEmbedLink, getAreaName } from '../utils';
 import { Package, Search, MapPin, Plus, Save, Trash2, X, Lock, ArrowRightLeft, Layers, ChevronRight, Copy, Move, AlertTriangle, Check, Clipboard as ClipboardIcon } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
 import SearchDropdown from './SearchDropdown';
+import SidebarItem from './SidebarItem';
 
 interface WarehouseMapProps {
     inventory: InventoryItem[];

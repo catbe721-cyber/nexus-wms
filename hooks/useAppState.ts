@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Product, InventoryItem, ViewState, Transaction, MasterLocation, AREA_CONFIG, generateId, SavedPickList } from '../types';
+import { Product, InventoryItem, ViewState, Transaction, MasterLocation, generateId, SavedPickList } from '../types';
+import { AREA_CONFIG } from '../consts/warehouse';
 import { GASService } from '../services/gasApi';
 import { ModalType } from '../components/ConfirmModal';
 
@@ -22,6 +23,10 @@ export function useAppState() {
 
     const showAlert = (title: string, message: string, type: ModalType = 'info') => {
         setModalConfig({ isOpen: true, title, message, type });
+    };
+
+    const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+        setModalConfig({ isOpen: true, title, message, type: 'confirm', onConfirm });
     };
 
     const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
@@ -150,12 +155,12 @@ export function useAppState() {
         }
     }, []); // Run once on mount
 
-    const handleSyncGas = async (pushLocalToCloud = true, silent = false, forcePushEmpty = false) => {
+    const handleSyncGas = async (pushLocalToCloud = true, silent = false, forceOverride = false) => {
         if (!gasConfig.url || !gasConfig.enabled) return;
 
         // Safety: If we haven't successfully pulled yet, do NOT auto-save (push).
         // This protects against overwriting the cloud with empty local data on fresh boot.
-        if (pushLocalToCloud && !isInitialSyncDone.current && !forcePushEmpty) {
+        if (pushLocalToCloud && !isInitialSyncDone.current && !forceOverride) {
             console.warn('NexusWMS: Skipped auto-save because initial load is not complete.');
             return;
         }
@@ -181,14 +186,19 @@ export function useAppState() {
                 const localInventoryCount = inventory.length;
 
                 // If local has data but cloud is empty or significantly smaller (>50% loss)
-                if (localInventoryCount > 5 && cloudInventoryCount < localInventoryCount * 0.5) {
+                // AND we are not forcing the overwrite
+                if (!forceOverride && localInventoryCount > 5 && cloudInventoryCount < localInventoryCount * 0.5) {
                     console.warn('NexusWMS: Cloud data is suspiciously small. Skipping overwrite to protect local data.');
-                    showAlert(
-                        'Sync Warning',
+                    showConfirm(
+                        'Sync Warning - Potential Data Loss',
                         `Cloud returned ${cloudInventoryCount} items but you have ${localInventoryCount} locally. ` +
-                        'This might indicate a problem with your Google Sheet. Data was NOT overwritten. ' +
-                        'Please verify your Google Sheet data before refreshing again.',
-                        'warning'
+                        'This might indicate a problem with your Google Sheet. \n\n' +
+                        'Do you want to FORCE overwriting your local data with the Cloud data? This cannot be undone.',
+                        () => {
+                            // User confirmed they want to overwrite local data
+                            console.log('NexusWMS: User forced sync of empty/small cloud data.');
+                            handleSyncGas(false, false, true); // Force Override = true
+                        }
                     );
                     // Do NOT set isInitialSyncDone to true, keeping the save lock active
                     return;
@@ -205,8 +215,23 @@ export function useAppState() {
                 if (data.products) setProducts(data.products);
                 if (data.transactions) setTransactions(data.transactions);
 
-                // IGNORE cloud locations to enforce local schema (AREA_CONFIG) as source of truth
-                // if (data.locations) setMasterLocations(data.locations); 
+                if (data.transactions) setTransactions(data.transactions);
+
+                // MERGE cloud locations to sync 'disabled' status, while preserving local AREA_CONFIG schema
+                if (data.locations) {
+                    setMasterLocations(prev => {
+                        const cloudMap = new Map(data.locations.map((l: any) => [`${l.rack}-${l.bay}-${l.level}`, l]));
+                        return prev.map(loc => {
+                            const key = `${loc.rack}-${loc.bay}-${loc.level}`;
+                            const cloudLoc = cloudMap.get(key);
+                            // Only update status if cloud has it, preserving the rest of the local config (ids, etc if needed)
+                            if (cloudLoc && cloudLoc.status) {
+                                return { ...loc, status: cloudLoc.status };
+                            }
+                            return loc;
+                        });
+                    });
+                }
 
                 if (data.pickLists) setSavedPickLists(data.pickLists);
 
@@ -586,6 +611,7 @@ export function useAppState() {
             handleUpdateProducts,
             handleToggleBinStatus,
             showAlert,
+            showConfirm,
             closeModal
         }
     };
