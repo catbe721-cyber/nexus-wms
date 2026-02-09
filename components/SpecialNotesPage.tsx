@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Transaction } from '../types';
-import { MessageSquare, ArrowDownLeft, ArrowUpRight, Search, RefreshCw, ArrowRightLeft, Trash2, ClipboardCheck } from 'lucide-react';
+import { MessageSquare, ArrowDownLeft, ArrowUpRight, Search, RefreshCw, ArrowRightLeft, Trash2, ClipboardCheck, X } from 'lucide-react';
 
 interface SpecialNotesPageProps {
     transactions: Transaction[];
@@ -8,6 +8,8 @@ interface SpecialNotesPageProps {
 
 const SpecialNotesPage: React.FC<SpecialNotesPageProps> = ({ transactions }) => {
     const [searchTerm, setSearchTerm] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
 
     // Filter for transactions with "Special" notes
     // We exclude the standard auto-generated system notes
@@ -25,11 +27,25 @@ const SpecialNotesPage: React.FC<SpecialNotesPageProps> = ({ transactions }) => 
 
         // Apply Search
         const searchLower = searchTerm.toLowerCase();
-        return (
+        const matchesSearch = (
             t.productName.toLowerCase().includes(searchLower) ||
             t.productCode.toLowerCase().includes(searchLower) ||
             note.toLowerCase().includes(searchLower)
         );
+
+        let matchesDate = true;
+        if (startDate) {
+            const [y, m, d] = startDate.split('-').map(Number);
+            const start = new Date(y, m - 1, d).setHours(0, 0, 0, 0);
+            if (t.date < start) matchesDate = false;
+        }
+        if (endDate && matchesDate) {
+            const [y, m, d] = endDate.split('-').map(Number);
+            const end = new Date(y, m - 1, d).setHours(23, 59, 59, 999);
+            if (t.date > end) matchesDate = false;
+        }
+
+        return matchesSearch && matchesDate;
     }).sort((a, b) => b.date - a.date); // Newest first
 
     const getTypeStyle = (type: string) => {
@@ -70,15 +86,49 @@ const SpecialNotesPage: React.FC<SpecialNotesPageProps> = ({ transactions }) => 
                     </div>
                 </div>
 
-                <div className="relative w-full md:w-96">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" />
-                    <input
-                        type="text"
-                        placeholder="Search notes, products..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 text-sm border border-white/10 bg-black/40 rounded-lg text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-primary focus:border-primary outline-none"
-                    />
+                <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                    <div className="relative w-full md:w-96">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" />
+                        <input
+                            type="text"
+                            placeholder="Search notes, products..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 text-sm border border-white/10 bg-black/40 rounded-lg text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="bg-slate-800 border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-primary outline-none"
+                            placeholder="Start Date"
+                        />
+                        <span className="text-slate-500">-</span>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="bg-slate-800 border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-primary outline-none"
+                            placeholder="End Date"
+                        />
+
+                        {(searchTerm || startDate || endDate) && (
+                            <button
+                                onClick={() => {
+                                    setSearchTerm('');
+                                    setStartDate('');
+                                    setEndDate('');
+                                }}
+                                className="p-2 text-slate-400 hover:text-white transition-colors ml-2"
+                                title="Clear Filters"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
