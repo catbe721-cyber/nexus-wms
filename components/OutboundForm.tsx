@@ -33,6 +33,8 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [requestQty, setRequestQty] = useState<number>(0);
   const [note, setNote] = useState<string>('');
+  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]); // Default to Today
+
 
   // Shopping Cart State
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -240,7 +242,8 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
         }
       });
     });
-    onProcess(flatList, note);
+    // @ts-ignore
+    onProcess(flatList, note, new Date(date).getTime());
     setNote('');
 
     // Success notification and Reset
@@ -543,15 +546,24 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
             )}
           </div>
 
-          {/* Special Note */}
-          <div className="px-4 py-2 border-t border-white/5 bg-slate-900/30">
-            <input
-              type="text"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Add optional note (e.g. Order #123, Urgent, etc.)"
-              className="w-full bg-transparent text-sm text-slate-300 placeholder-slate-600 outline-none"
-            />
+          {/* Special Note & Date */}
+          <div className="px-4 py-2 border-t border-white/5 bg-slate-900/30 flex flex-col gap-2">
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-1/3 px-3 py-2 bg-transparent text-sm text-slate-300 border border-white/10 rounded-lg outline-none focus:border-primary"
+              />
+              <input
+                type="text"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Add optional note (e.g. Order #123, Urgent, etc.)"
+                className="flex-1 bg-transparent text-sm text-slate-300 placeholder-slate-600 outline-none border border-white/10 rounded-lg px-3 py-2 focus:border-primary"
+              />
+            </div>
+
           </div>
 
           {/* Footer Actions */}

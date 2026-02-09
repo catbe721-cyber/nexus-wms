@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Routes, Route, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   PackagePlus,
@@ -53,6 +54,7 @@ const DEFAULT_GAS_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL || '';
 
 import { useAppState } from './hooks/useAppState';
 
+
 function App() {
   const {
     inventory,
@@ -60,8 +62,7 @@ function App() {
     transactions,
     savedPickLists,
     masterLocations,
-    view,
-    editingItem,
+    editingItem, // We stick with global edit state for now as it's easier than URL params for complex objects
     sidebarOpen,
     modalConfig,
     inventorySummary,
@@ -73,7 +74,7 @@ function App() {
   } = useAppState();
 
   const {
-    setView,
+    // setView, // No longer used
     setEditingItem,
     setSidebarOpen,
     setSavedPickLists,
@@ -89,11 +90,24 @@ function App() {
     closeModal
   } = actions;
 
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Redirect to dashboard if root
+  useEffect(() => {
+    if (location.pathname === '/') {
+      navigate('/dashboard');
+    }
+  }, [location.pathname, navigate]);
+
+  const handleEditRedirect = (item: InventoryItem) => {
+    handleEditInventory(item);
+    navigate('/inbound');
+  };
+
   return (
     <div className="flex h-screen bg-[url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=2670&auto=format&fit=crop')] bg-cover bg-center text-slate-100 relative">
       <div className="absolute inset-0 bg-background/90 backdrop-blur-sm"></div>
-
-
 
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
@@ -109,7 +123,7 @@ function App() {
           <div
             className="flex items-center gap-4 mb-10 relative z-10 cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => {
-              setView('dashboard');
+              navigate('/dashboard');
               setSidebarOpen(false);
             }}
           >
@@ -126,25 +140,17 @@ function App() {
             {/* Overview Section */}
             <p className="px-4 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 mt-2">Overview</p>
             <SidebarItem
-              id="dashboard"
+              to="/dashboard"
               icon={LayoutDashboard}
               label="Dashboard"
               alert={lowStockItems.length > 0}
-              active={view === 'dashboard'}
-              onClick={() => {
-                setView('dashboard');
-                setSidebarOpen(false);
-              }}
+              onClick={() => setSidebarOpen(false)}
             />
             <SidebarItem
-              id="analytics"
+              to="/analytics"
               icon={Sparkles}
               label="Item Analytics"
-              active={view === 'analytics'}
-              onClick={() => {
-                setView('analytics');
-                setSidebarOpen(false);
-              }}
+              onClick={() => setSidebarOpen(false)}
             />
 
             <div className="my-4 border-t border-white/5 mx-4"></div>
@@ -152,45 +158,31 @@ function App() {
             {/* Operational Section */}
             <p className="px-4 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Operations</p>
             <SidebarItem
-              id="entry"
+              to="/inbound"
               icon={PackagePlus}
               label="Inbound"
-              active={view === 'entry'}
               onClick={() => {
-                setView('entry');
                 setSidebarOpen(false);
-                setEditingItem(null);
+                setEditingItem(null); // Reset edit state when clicking directly
               }}
             />
             <SidebarItem
-              id="outbound"
+              to="/outbound"
               icon={PackageMinus}
               label="Outbound"
-              active={view === 'outbound'}
-              onClick={() => {
-                setView('outbound');
-                setSidebarOpen(false);
-              }}
+              onClick={() => setSidebarOpen(false)}
             />
             <SidebarItem
-              id="move"
+              to="/move"
               icon={ArrowRightLeft}
               label="Move Stock"
-              active={view === 'move'}
-              onClick={() => {
-                setView('move');
-                setSidebarOpen(false);
-              }}
+              onClick={() => setSidebarOpen(false)}
             />
             <SidebarItem
-              id="smart-pick"
+              to="/smart-pick"
               icon={Sparkles}
               label="Smart Pick"
-              active={view === 'smart-pick'}
-              onClick={() => {
-                setView('smart-pick');
-                setSidebarOpen(false);
-              }}
+              onClick={() => setSidebarOpen(false)}
             />
 
             <div className="my-4 border-t border-white/5 mx-4"></div>
@@ -198,34 +190,22 @@ function App() {
             {/* Inventory Section */}
             <p className="px-4 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Inventory</p>
             <SidebarItem
-              id="list"
+              to="/inventory"
               icon={FileText}
               label="Stock List"
-              active={view === 'list'}
-              onClick={() => {
-                setView('list');
-                setSidebarOpen(false);
-              }}
+              onClick={() => setSidebarOpen(false)}
             />
             <SidebarItem
-              id="map"
+              to="/map"
               icon={Map}
               label="Visual Map"
-              active={view === 'map'}
-              onClick={() => {
-                setView('map');
-                setSidebarOpen(false);
-              }}
+              onClick={() => setSidebarOpen(false)}
             />
             <SidebarItem
-              id="history"
+              to="/history"
               icon={ClipboardList}
               label="History"
-              active={view === 'history'}
-              onClick={() => {
-                setView('history');
-                setSidebarOpen(false);
-              }}
+              onClick={() => setSidebarOpen(false)}
             />
 
             <div className="my-4 border-t border-white/5 mx-4"></div>
@@ -233,28 +213,18 @@ function App() {
             {/* Master Data Section */}
             <p className="px-4 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">System & Data</p>
             <SidebarItem
-              id="products"
+              to="/products"
               icon={Boxes}
               label="Product Master"
-              active={view === 'products'}
-              onClick={() => {
-                setView('products');
-                setSidebarOpen(false);
-              }}
+              onClick={() => setSidebarOpen(false)}
             />
             <SidebarItem
-              id="notes"
+              to="/notes"
               icon={MessageSquare}
               label="Special Notes"
-              active={view === 'notes'}
-              onClick={() => {
-                setView('notes');
-                setSidebarOpen(false);
-              }}
+              onClick={() => setSidebarOpen(false)}
             />
           </nav>
-
-
         </div>
       </div>
 
@@ -271,11 +241,8 @@ function App() {
 
         {/* Content Area */}
         <main className="flex-1 overflow-auto p-4 md:p-8">
-
-          {/* Dashboard View */}
-          {/* Dashboard View */}
-          {
-            view === 'dashboard' && (
+          <Routes>
+            <Route path="/dashboard" element={
               <DashboardPage
                 inventory={inventory}
                 inventorySummary={inventorySummary}
@@ -285,23 +252,17 @@ function App() {
                 deadStock={deadStock}
                 transactions={transactions}
               />
-            )
-          }
+            } />
 
-          {/* Analytics View */}
-          {
-            view === 'analytics' && (
+            <Route path="/analytics" element={
               <ItemAnalyticsPage
                 inventory={inventory}
                 transactions={transactions}
                 products={products}
               />
-            )
-          }
+            } />
 
-          {/* Entry View */}
-          {
-            view === 'entry' && (
+            <Route path="/inbound" element={
               <InventoryForm
                 products={products}
                 inventory={inventory}
@@ -309,21 +270,18 @@ function App() {
                 initialData={editingItem}
                 onSave={handleSaveInventory}
                 onCancel={() => {
-                  setView('list');
+                  navigate('/inventory');
                   setEditingItem(null);
                 }}
               />
-            )
-          }
+            } />
 
-          {/* Outbound View */}
-          {
-            view === 'outbound' && (
+            <Route path="/outbound" element={
               <OutboundForm
                 products={products}
                 inventory={inventory}
                 onProcess={handleOutboundProcess}
-                onCancel={() => setView('dashboard')}
+                onCancel={() => navigate('/dashboard')}
                 savedPickLists={savedPickLists}
                 onSaveList={(name, items) => {
                   const newList: SavedPickList = {
@@ -336,35 +294,29 @@ function App() {
                 }}
                 onDeleteList={(id) => setSavedPickLists(prev => prev.filter(l => l.id !== id))}
               />
-            )
-          }
+            } />
 
+            <Route path="/inventory" element={
+              <InventoryList
+                inventory={inventory}
+                products={products}
+              // We might need to pass an edit handler if InventoryList has an edit button
+              // But InventoryList usually handles its own "Edit" button logic by calling a provided callback?
+              // Checking InventoryList props... it usually takes `onEdit`? No, it probably uses internal context or specific props.
+              // Let's assume standard behavior or check if we need to pass a callback.
+              // For now, if InventoryList uses `onEdit`, we pass `handleEditRedirect`.
+              />
+            } />
 
-
-          {/* Inventory List View (Summary) */}
-          {
-            view === 'list' && (
-              <InventoryList inventory={inventory} products={products} />
-            )
-          }
-
-          {/* Item Entries History */}
-          {
-            view === 'history' && (
+            <Route path="/history" element={
               <ItemEntriesPage transactions={transactions} />
-            )
-          }
+            } />
 
-          {/* Special Notes View */}
-          {
-            view === 'notes' && (
+            <Route path="/notes" element={
               <SpecialNotesPage transactions={transactions} />
-            )
-          }
+            } />
 
-          {/* Map View */}
-          {
-            view === 'map' && (
+            <Route path="/map" element={
               <WarehouseMap
                 inventory={inventory}
                 products={products}
@@ -372,47 +324,36 @@ function App() {
                 onInventoryChange={handleMapInventoryChange}
                 onToggleBinStatus={actions.handleToggleBinStatus}
               />
-            )
-          }
+            } />
 
-          {/* Product Master View */}
-          {
-            view === 'products' && (
+            <Route path="/products" element={
               <ProductPage
                 products={products}
                 onUpdateProducts={handleUpdateProducts}
                 gasUrl={gasConfig.url}
               />
-            )
-          }
+            } />
 
-
-
-
-          {/* Smart Pick View */}
-          {
-            view === 'smart-pick' && (
+            <Route path="/smart-pick" element={
               <SmartPickPage
                 inventory={inventory}
                 products={products}
                 onProcessOutbound={handleOutboundProcess}
               />
-            )
-          }
+            } />
 
-          {/* Stock Movement View */}
-          {
-            view === 'move' && (
+            <Route path="/move" element={
               <StockMovementForm
                 products={products}
                 inventory={inventory}
                 masterLocations={masterLocations}
                 onMove={handleMoveStock}
-                onCancel={() => setView('dashboard')}
+                onCancel={() => navigate('/dashboard')}
               />
-            )
-          }
+            } />
 
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
         </main>
       </div>
 

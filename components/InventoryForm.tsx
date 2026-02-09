@@ -22,6 +22,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, inventory = [],
   // const [expandedImage, setExpandedImage] = useState<string | null | undefined>(null); // Removed per user request
   const [category, setCategory] = useState<string>('OTH');
   const [inboundType, setInboundType] = useState<string>('Purchase');
+  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]); // Default to Today
   const [notes, setNotes] = useState<string>('');
   const [locations, setLocations] = useState<InventoryLocation[]>([]);
 
@@ -176,7 +177,9 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, inventory = [],
       category,
 
       notes: `[${inboundType}] ${notes} `,
-      locations: finalLocations
+      locations: finalLocations,
+      // @ts-ignore
+      date: new Date(date).getTime()
     });
 
     // Success State & Reset
@@ -343,6 +346,17 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, inventory = [],
             </div>
           )
         }
+
+        {/* Date Field (Moved) */}
+        <div className="flex flex-col gap-1">
+          <label className="block text-sm font-bold text-slate-400 mb-1 uppercase tracking-wider">Date</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-1/3 px-3 py-2 bg-transparent text-sm text-slate-300 border border-white/10 rounded-lg outline-none focus:border-primary"
+          />
+        </div>
 
         {/* Location Manager */}
         <div className="border border-white/10 rounded-lg p-4 bg-black/20">

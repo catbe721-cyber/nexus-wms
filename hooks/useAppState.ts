@@ -10,7 +10,6 @@ import { INITIAL_PRODUCTS } from '../consts/initialData';
 const DEFAULT_GAS_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL || '';
 
 export function useAppState() {
-    const [view, setView] = useState<ViewState>('dashboard');
 
     // -- Modal State --
     const [modalConfig, setModalConfig] = useState<{
@@ -223,7 +222,7 @@ export function useAppState() {
                         const cloudMap = new Map(data.locations.map((l: any) => [`${l.rack}-${l.bay}-${l.level}`, l]));
                         return prev.map(loc => {
                             const key = `${loc.rack}-${loc.bay}-${loc.level}`;
-                            const cloudLoc = cloudMap.get(key);
+                            const cloudLoc = cloudMap.get(key) as any;
                             // Only update status if cloud has it, preserving the rest of the local config (ids, etc if needed)
                             if (cloudLoc && cloudLoc.status) {
                                 return { ...loc, status: cloudLoc.status };
@@ -266,7 +265,8 @@ export function useAppState() {
         item: InventoryItem,
         qty: number,
         locationOverride?: string,
-        customNote?: string
+        customNote?: string,
+        customDate?: number
     ) => {
         // Resolve the latest data from Product Master to ensure history matches current catalog
         const masterProduct = products.find(p => p.productCode === item.productCode);
@@ -276,7 +276,7 @@ export function useAppState() {
 
         const newTx: Transaction = {
             id: generateId(),
-            date: Date.now(),
+            date: customDate || Date.now(),
             type,
             productCode: item.productCode,
             productName: resolvedName,
@@ -292,16 +292,19 @@ export function useAppState() {
     // -- Handlers --
 
     const handleSaveInventory = (item: Omit<InventoryItem, 'id' | 'updatedAt'>) => {
+        // @ts-ignore - 'date' passed from form but not in type
+        const customDate = item.date as number | undefined;
+
         if (editingItem) {
             // Update existing (Inbound Edit)
             const qtyDiff = item.quantity - editingItem.quantity;
             if (qtyDiff !== 0) {
-                logTransaction('ADJUSTMENT', { ...item, id: editingItem.id, updatedAt: Date.now() }, qtyDiff, 'Edit Entry Form', item.notes);
+                logTransaction('ADJUSTMENT', { ...item, id: editingItem.id, updatedAt: Date.now() }, qtyDiff, 'Edit Entry Form', item.notes, customDate);
             }
 
             setInventory(prev => prev.map(i =>
                 i.id === editingItem.id
-                    ? { ...item, id: editingItem.id, updatedAt: Date.now() }
+                    ? { ...item, id: editingItem.id, updatedAt: Date.now() } // keep system time for updatedAt
                     : i
             ));
             setEditingItem(null);
@@ -313,13 +316,12 @@ export function useAppState() {
                 updatedAt: Date.now()
             };
             setInventory(prev => [newItem, ...prev]);
-            logTransaction('INBOUND', newItem, newItem.quantity, undefined, item.notes);
+            logTransaction('INBOUND', newItem, newItem.quantity, undefined, item.notes, customDate);
         }
     };
 
     const handleEditInventory = (item: InventoryItem) => {
         setEditingItem(item);
-        setView('entry');
     };
 
     // Delete inventory from Map or List context
@@ -335,7 +337,7 @@ export function useAppState() {
         }
     };
 
-    const handleOutboundProcess = (itemsToRemove: { id: string, qty: number }[], note?: string) => {
+    const handleOutboundProcess = (itemsToRemove: { id: string, qty: number }[], note?: string, customDate?: number) => {
         const newTransactions: Transaction[] = [];
         const currentInventory = [...inventory];
         const updatedInventory = [...inventory];
@@ -356,7 +358,7 @@ export function useAppState() {
 
             const tx: Transaction = {
                 id: generateId(),
-                date: Date.now(),
+                date: customDate || Date.now(),
                 type: 'OUTBOUND',
                 productCode: item.productCode,
                 productName: resolvedName,
@@ -585,7 +587,6 @@ export function useAppState() {
         transactions,
         savedPickLists,
         masterLocations,
-        view,
         editingItem,
         sidebarOpen,
         modalConfig,
@@ -597,7 +598,6 @@ export function useAppState() {
         topMovers,
         deadStock,
         actions: {
-            setView,
             setEditingItem,
             setSidebarOpen,
             setSavedPickLists, // Needed for SmartPickPage updates potentially
