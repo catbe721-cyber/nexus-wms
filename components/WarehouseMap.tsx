@@ -11,7 +11,7 @@ interface WarehouseMapProps {
     inventory: InventoryItem[];
     products: Product[];
     masterLocations?: MasterLocation[];
-    onInventoryChange: (action: 'ADD' | 'UPDATE' | 'DELETE' | 'MOVE' | 'COUNT', item: InventoryItem, qtyDiff?: number, moveContext?: any) => void;
+    onInventoryChange: (action: 'ADD' | 'UPDATE' | 'DELETE' | 'MOVE' | 'COUNT', item: InventoryItem, qtyDiff?: number, moveContext?: any, date?: number) => void;
     onToggleBinStatus?: (rack: string, bay: number, level: string) => void;
 }
 
@@ -24,6 +24,9 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
     const [levelView, setLevelView] = useState<string>('Floor');
     const [mapSearch, setMapSearch] = useState(''); // New Search State
     const [showMapSearchDropdown, setShowMapSearchDropdown] = useState(false);
+
+    // Date Selection
+    const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
 
     // Edit State
@@ -42,7 +45,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
     const [moveQty, setMoveQty] = useState<number>(0);
 
     // Floating Tooltip State
-    const [tooltipData, setTooltipData] = useState<{ x: number, y: number, items: InventoryItem[], title: string } | null>(null);
+    const [tooltipData, setTooltipData] = useState<{ x: number, y: number, items: InventoryItem[], title: string, isDisabled?: boolean } | null>(null);
 
     // Auto-focus Input Ref & Dropdown State
     const newItemInputRef = React.useRef<HTMLInputElement>(null);
@@ -186,7 +189,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                 `Are you sure you want to remove all ${selectedCellItems.length} items from ${selectedLocation.rack}-${selectedLocation.bay}-${selectedLocation.level}?`,
                 () => {
                     selectedCellItems.forEach(item => {
-                        onInventoryChange('DELETE', item, -item.quantity);
+                        onInventoryChange('DELETE', item, -item.quantity, undefined, new Date(selectedDate).getTime());
                     });
                 },
                 'danger'
@@ -195,7 +198,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [selectedLocation, selectedCellItems, canEdit]);
+    }, [selectedLocation, selectedCellItems, canEdit, selectedDate]);
 
 
 
@@ -217,7 +220,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
 
         const diff = actualQty - countItem.quantity;
 
-        onInventoryChange('COUNT', { ...countItem, quantity: actualQty }, diff);
+        onInventoryChange('COUNT', { ...countItem, quantity: actualQty }, diff, undefined, new Date(selectedDate).getTime());
 
         setIsCountModalOpen(false);
         setCountItem(null);
@@ -248,7 +251,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
             // Merge logic
             const newTotal = existingItem.quantity + newItemQty;
             const updatedItem = { ...existingItem, quantity: newTotal, updatedAt: Date.now() };
-            onInventoryChange('UPDATE', updatedItem, newItemQty);
+            onInventoryChange('UPDATE', updatedItem, newItemQty, undefined, new Date(selectedDate).getTime());
         } else {
             // Create new logic
             const newItem: InventoryItem = {
@@ -261,7 +264,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                 locations: [selectedLocation],
                 updatedAt: Date.now()
             };
-            onInventoryChange('ADD', newItem, newItemQty);
+            onInventoryChange('ADD', newItem, newItemQty, undefined, new Date(selectedDate).getTime());
         }
 
         setIsAddingItem(false);
@@ -288,7 +291,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
             showConfirm(
                 "Delete Item?",
                 "Quantity is 0. Do you want to remove this item?",
-                () => onInventoryChange('DELETE', item, -item.quantity),
+                () => onInventoryChange('DELETE', item, -item.quantity, undefined, new Date(selectedDate).getTime()),
                 'danger'
             );
         } else {
@@ -296,7 +299,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
             if (diff === 0) { setEditingItemId(null); return; }
 
             const updatedItem = { ...item, quantity: editQty, updatedAt: Date.now() };
-            onInventoryChange('UPDATE', updatedItem, diff);
+            onInventoryChange('UPDATE', updatedItem, diff, undefined, new Date(selectedDate).getTime());
         }
         setEditingItemId(null);
     };
@@ -306,7 +309,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
         showConfirm(
             "Remove Item",
             `Remove ${item.productName} from this bin?`,
-            () => onInventoryChange('DELETE', item, -item.quantity),
+            () => onInventoryChange('DELETE', item, -item.quantity, undefined, new Date(selectedDate).getTime()),
             'danger'
         );
     };
@@ -355,18 +358,18 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                 // 1. Update Destination
                 const newTotal = existingDestItem.quantity + qtyToMove;
                 const updatedDestItem = { ...existingDestItem, quantity: newTotal, updatedAt: Date.now() };
-                onInventoryChange('UPDATE', updatedDestItem, qtyToMove);
+                onInventoryChange('UPDATE', updatedDestItem, qtyToMove, undefined, new Date(selectedDate).getTime());
 
                 // 2. Handle Source (Only if NOT copying)
                 if (!isCopy) {
                     if (isFullMove) {
                         // Delete Source
-                        onInventoryChange('DELETE', item, -item.quantity);
+                        onInventoryChange('DELETE', item, -item.quantity, undefined, new Date(selectedDate).getTime());
                     } else {
                         // Update Source
                         const remainingQty = item.quantity - qtyToMove;
                         const updatedSourceItem = { ...item, quantity: remainingQty, updatedAt: Date.now() };
-                        onInventoryChange('UPDATE', updatedSourceItem, -qtyToMove);
+                        onInventoryChange('UPDATE', updatedSourceItem, -qtyToMove, undefined, new Date(selectedDate).getTime());
                     }
                 }
             }
@@ -375,7 +378,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                 if (isFullMove && !isCopy) {
                     // Standard Full Move
                     const updatedItem = { ...item, locations: [dest], updatedAt: Date.now() };
-                    onInventoryChange('MOVE', updatedItem, 0, { previousLocation: item.locations[0] });
+                    onInventoryChange('MOVE', updatedItem, 0, { previousLocation: item.locations[0] }, new Date(selectedDate).getTime());
                 } else {
                     // Partial Move or Copy to Empty Slot
                     // 1. Create New Item at Dest
@@ -386,13 +389,13 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                         locations: [dest],
                         updatedAt: Date.now()
                     };
-                    onInventoryChange('ADD', newItem, qtyToMove);
+                    onInventoryChange('ADD', newItem, qtyToMove, undefined, new Date(selectedDate).getTime());
 
                     // 2. Update Source (Only if NOT copying)
                     if (!isCopy) {
                         const remainingQty = item.quantity - qtyToMove;
                         const updatedSourceItem = { ...item, quantity: remainingQty, updatedAt: Date.now() };
-                        onInventoryChange('UPDATE', updatedSourceItem, -qtyToMove);
+                        onInventoryChange('UPDATE', updatedSourceItem, -qtyToMove, undefined, new Date(selectedDate).getTime());
                     }
                 }
             }
@@ -483,10 +486,10 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                 // Update Dest
                 const newTotal = destItem.quantity + srcItem.quantity;
                 const updatedDest = { ...destItem, quantity: newTotal, updatedAt: Date.now() };
-                onInventoryChange('UPDATE', updatedDest, srcItem.quantity);
+                onInventoryChange('UPDATE', updatedDest, srcItem.quantity, undefined, new Date(selectedDate).getTime());
                 // Delete Source (only if not copying)
                 if (!isCopy) {
-                    onInventoryChange('DELETE', srcItem, -srcItem.quantity);
+                    onInventoryChange('DELETE', srcItem, -srcItem.quantity, undefined, new Date(selectedDate).getTime());
                 }
             });
 
@@ -500,11 +503,11 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                         locations: [dest],
                         updatedAt: Date.now()
                     };
-                    onInventoryChange('ADD', newItem, srcItem.quantity);
+                    onInventoryChange('ADD', newItem, srcItem.quantity, undefined, new Date(selectedDate).getTime());
                 } else {
                     // MOVE: Update location
                     const updatedItem = { ...srcItem, locations: [dest], updatedAt: Date.now() };
-                    onInventoryChange('MOVE', updatedItem, 0, { previousLocation: srcItem.locations[0] });
+                    onInventoryChange('MOVE', updatedItem, 0, { previousLocation: srcItem.locations[0] }, new Date(selectedDate).getTime());
                 }
             });
         };
@@ -536,11 +539,11 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                 // 1. Update Destination
                 const newTotal = existingDestItem.quantity + qtyToMove;
                 const updatedDestItem = { ...existingDestItem, quantity: newTotal, updatedAt: Date.now() };
-                onInventoryChange('UPDATE', updatedDestItem, qtyToMove);
+                onInventoryChange('UPDATE', updatedDestItem, qtyToMove, undefined, new Date(selectedDate).getTime());
 
                 // 2. Handle Source (only delete if not copying)
                 if (!isCopy) {
-                    onInventoryChange('DELETE', item, -item.quantity);
+                    onInventoryChange('DELETE', item, -item.quantity, undefined, new Date(selectedDate).getTime());
                 }
             }
             // SCENARIO 2: Move/Copy to empty slot
@@ -553,11 +556,11 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                         locations: [dest],
                         updatedAt: Date.now()
                     };
-                    onInventoryChange('ADD', newItem, item.quantity);
+                    onInventoryChange('ADD', newItem, item.quantity, undefined, new Date(selectedDate).getTime());
                 } else {
                     // MOVE: Update location
                     const updatedItem = { ...item, locations: [dest], updatedAt: Date.now() };
-                    onInventoryChange('MOVE', updatedItem, 0, { previousLocation: item.locations[0] });
+                    onInventoryChange('MOVE', updatedItem, 0, { previousLocation: item.locations[0] }, new Date(selectedDate).getTime());
                 }
             }
         };
@@ -590,7 +593,16 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                     </div>
 
                     {/* Zone Selector Bar - Dynamic */}
-                    <div className="flex gap-2 p-1 bg-black/40 rounded-lg overflow-x-auto">
+                    <div className="flex flex-wrap items-center gap-2 p-1 bg-black/40 rounded-lg overflow-x-auto">
+                        {/* Date Picker */}
+                        <input
+                            type="date"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            className="px-3 py-1 text-sm bg-slate-800 text-slate-300 border border-white/10 rounded outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                        />
+                        <div className="w-px h-6 bg-white/10 mx-1"></div>
+
                         <button
                             key="RACKS"
                             onClick={() => { setSelectedRack('ALL'); setSelectedLocation(null); }}

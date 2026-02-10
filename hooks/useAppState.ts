@@ -387,38 +387,38 @@ export function useAppState() {
         setTransactions(prev => [...newTransactions, ...prev]);
     };
 
-    const handleMapInventoryChange = (action: 'ADD' | 'UPDATE' | 'DELETE' | 'MOVE' | 'COUNT', item: InventoryItem, qtyDiff?: number, moveContext?: any) => {
+    const handleMapInventoryChange = (action: 'ADD' | 'UPDATE' | 'DELETE' | 'MOVE' | 'COUNT', item: InventoryItem, qtyDiff?: number, moveContext?: any, date?: number) => {
         if (action === 'ADD') {
             setInventory(prev => [item, ...prev]);
-            logTransaction('INBOUND', item, item.quantity, 'Map Direct Add');
+            logTransaction('INBOUND', item, item.quantity, 'Map Direct Add', undefined, date);
         } else if (action === 'UPDATE') {
             setInventory(prev => prev.map(i => i.id === item.id ? item : i));
             if (qtyDiff) {
-                logTransaction('ADJUSTMENT', item, qtyDiff, 'Map Direct Adjustment');
+                logTransaction('ADJUSTMENT', item, qtyDiff, 'Map Direct Adjustment', undefined, date);
             } else if (qtyDiff === 0 && !moveContext) {
                 // Fallback if no specific logic
             }
         } else if (action === 'DELETE') {
             setInventory(prev => prev.filter(i => i.id !== item.id));
             // Log explicitly with negative quantity of the item
-            logTransaction('DELETE', item, -item.quantity, 'Map Direct Removal');
+            logTransaction('DELETE', item, -item.quantity, 'Map Direct Removal', undefined, date);
         } else if (action === 'MOVE') {
             // Move logic: Update item location
             setInventory(prev => prev.map(i => i.id === item.id ? item : i));
             // Log move
             const fromLoc = moveContext?.previousLocation ? `${moveContext.previousLocation.rack}-${moveContext.previousLocation.bay}-${moveContext.previousLocation.level}` : 'Unknown';
             const toLoc = item.locations[0] ? `${item.locations[0].rack}-${item.locations[0].bay}-${item.locations[0].level}` : 'Unknown';
-            logTransaction('MOVE', item, 0, `Moved: ${fromLoc} -> ${toLoc}`);
+            logTransaction('MOVE', item, 0, `Moved: ${fromLoc} -> ${toLoc}`, undefined, date);
         } else if (action === 'COUNT') {
             // Update lastCountedAt
             setInventory(prev => prev.map(i => i.id === item.id ? { ...item, lastCountedAt: Date.now() } : i));
 
             if (qtyDiff && qtyDiff !== 0) {
                 // Variance found -> Log as Adjustment (or could differ based on pref)
-                logTransaction('ADJUSTMENT', item, qtyDiff, 'Cycle Count Variance');
+                logTransaction('ADJUSTMENT', item, qtyDiff, 'Cycle Count Variance', undefined, date);
             } else {
                 // Perfect match
-                logTransaction('COUNT', item, 0, 'Cycle Count Verified');
+                logTransaction('COUNT', item, 0, 'Cycle Count Verified', undefined, date);
             }
         }
     };
