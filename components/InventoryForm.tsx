@@ -22,7 +22,33 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, inventory = [],
   // const [expandedImage, setExpandedImage] = useState<string | null | undefined>(null); // Removed per user request
   const [category, setCategory] = useState<string>('OTH');
   const [inboundType, setInboundType] = useState<string>('Purchase');
-  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]); // Default to Today
+  // Initialize with LOCAL date string to avoid UTC shift
+  const [date, setDate] = useState<string>(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
+
+  // Helper to combine Selected Date + Current Time (preserve entry sequence)
+  const getAdjustedTimestamp = (dateStr: string) => {
+    const dateParts = dateStr.split('-').map(Number); // [YYYY, MM, DD]
+    const now = new Date();
+
+    // Create date object with Selected Date + Current Time
+    const adjustedDate = new Date(
+      dateParts[0],
+      dateParts[1] - 1, // Month is 0-indexed
+      dateParts[2],
+      now.getHours(),
+      now.getMinutes(),
+      now.getSeconds()
+    );
+
+    return adjustedDate.getTime();
+  };
+
   const [notes, setNotes] = useState<string>('');
   const [locations, setLocations] = useState<InventoryLocation[]>([]);
 
@@ -179,7 +205,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, inventory = [],
       notes: `[${inboundType}] ${notes} `,
       locations: finalLocations,
       // @ts-ignore
-      date: new Date(date).getTime()
+      date: getAdjustedTimestamp(date)
     });
 
     // Success State & Reset

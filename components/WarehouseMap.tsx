@@ -26,7 +26,32 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
     const [showMapSearchDropdown, setShowMapSearchDropdown] = useState(false);
 
     // Date Selection
-    const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    // Initialize with LOCAL date string to avoid UTC shift
+    const [selectedDate, setSelectedDate] = useState<string>(() => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    });
+
+    // Helper to combine Selected Date + Current Time (preserve entry sequence)
+    const getAdjustedTimestamp = (dateStr: string) => {
+        const dateParts = dateStr.split('-').map(Number); // [YYYY, MM, DD]
+        const now = new Date();
+
+        // Create date object with Selected Date + Current Time
+        const adjustedDate = new Date(
+            dateParts[0],
+            dateParts[1] - 1, // Month is 0-indexed
+            dateParts[2],
+            now.getHours(),
+            now.getMinutes(),
+            now.getSeconds()
+        );
+
+        return adjustedDate.getTime();
+    };
 
 
     // Edit State
@@ -189,7 +214,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                 `Are you sure you want to remove all ${selectedCellItems.length} items from ${selectedLocation.rack}-${selectedLocation.bay}-${selectedLocation.level}?`,
                 () => {
                     selectedCellItems.forEach(item => {
-                        onInventoryChange('DELETE', item, -item.quantity, undefined, new Date(selectedDate).getTime());
+                        onInventoryChange('DELETE', item, -item.quantity, undefined, getAdjustedTimestamp(selectedDate));
                     });
                 },
                 'danger'
@@ -220,7 +245,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
 
         const diff = actualQty - countItem.quantity;
 
-        onInventoryChange('COUNT', { ...countItem, quantity: actualQty }, diff, undefined, new Date(selectedDate).getTime());
+        onInventoryChange('COUNT', { ...countItem, quantity: actualQty }, diff, undefined, getAdjustedTimestamp(selectedDate));
 
         setIsCountModalOpen(false);
         setCountItem(null);
@@ -251,7 +276,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
             // Merge logic
             const newTotal = existingItem.quantity + newItemQty;
             const updatedItem = { ...existingItem, quantity: newTotal, updatedAt: Date.now() };
-            onInventoryChange('UPDATE', updatedItem, newItemQty, undefined, new Date(selectedDate).getTime());
+            onInventoryChange('UPDATE', updatedItem, newItemQty, undefined, getAdjustedTimestamp(selectedDate));
         } else {
             // Create new logic
             const newItem: InventoryItem = {
@@ -264,7 +289,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                 locations: [selectedLocation],
                 updatedAt: Date.now()
             };
-            onInventoryChange('ADD', newItem, newItemQty, undefined, new Date(selectedDate).getTime());
+            onInventoryChange('ADD', newItem, newItemQty, undefined, getAdjustedTimestamp(selectedDate));
         }
 
         setIsAddingItem(false);
@@ -291,7 +316,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
             showConfirm(
                 "Delete Item?",
                 "Quantity is 0. Do you want to remove this item?",
-                () => onInventoryChange('DELETE', item, -item.quantity, undefined, new Date(selectedDate).getTime()),
+                () => onInventoryChange('DELETE', item, -item.quantity, undefined, getAdjustedTimestamp(selectedDate)),
                 'danger'
             );
         } else {
@@ -299,7 +324,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
             if (diff === 0) { setEditingItemId(null); return; }
 
             const updatedItem = { ...item, quantity: editQty, updatedAt: Date.now() };
-            onInventoryChange('UPDATE', updatedItem, diff, undefined, new Date(selectedDate).getTime());
+            onInventoryChange('UPDATE', updatedItem, diff, undefined, getAdjustedTimestamp(selectedDate));
         }
         setEditingItemId(null);
     };
@@ -309,7 +334,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
         showConfirm(
             "Remove Item",
             `Remove ${item.productName} from this bin?`,
-            () => onInventoryChange('DELETE', item, -item.quantity, undefined, new Date(selectedDate).getTime()),
+            () => onInventoryChange('DELETE', item, -item.quantity, undefined, getAdjustedTimestamp(selectedDate)),
             'danger'
         );
     };
@@ -364,12 +389,12 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                 if (!isCopy) {
                     if (isFullMove) {
                         // Delete Source
-                        onInventoryChange('DELETE', item, -item.quantity, undefined, new Date(selectedDate).getTime());
+                        onInventoryChange('DELETE', item, -item.quantity, undefined, getAdjustedTimestamp(selectedDate));
                     } else {
                         // Update Source
                         const remainingQty = item.quantity - qtyToMove;
                         const updatedSourceItem = { ...item, quantity: remainingQty, updatedAt: Date.now() };
-                        onInventoryChange('UPDATE', updatedSourceItem, -qtyToMove, undefined, new Date(selectedDate).getTime());
+                        onInventoryChange('UPDATE', updatedSourceItem, -qtyToMove, undefined, getAdjustedTimestamp(selectedDate));
                     }
                 }
             }
@@ -378,7 +403,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                 if (isFullMove && !isCopy) {
                     // Standard Full Move
                     const updatedItem = { ...item, locations: [dest], updatedAt: Date.now() };
-                    onInventoryChange('MOVE', updatedItem, 0, { previousLocation: item.locations[0] }, new Date(selectedDate).getTime());
+                    onInventoryChange('MOVE', updatedItem, 0, { previousLocation: item.locations[0] }, getAdjustedTimestamp(selectedDate));
                 } else {
                     // Partial Move or Copy to Empty Slot
                     // 1. Create New Item at Dest
@@ -389,13 +414,13 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                         locations: [dest],
                         updatedAt: Date.now()
                     };
-                    onInventoryChange('ADD', newItem, qtyToMove, undefined, new Date(selectedDate).getTime());
+                    onInventoryChange('ADD', newItem, qtyToMove, undefined, getAdjustedTimestamp(selectedDate));
 
                     // 2. Update Source (Only if NOT copying)
                     if (!isCopy) {
                         const remainingQty = item.quantity - qtyToMove;
                         const updatedSourceItem = { ...item, quantity: remainingQty, updatedAt: Date.now() };
-                        onInventoryChange('UPDATE', updatedSourceItem, -qtyToMove, undefined, new Date(selectedDate).getTime());
+                        onInventoryChange('UPDATE', updatedSourceItem, -qtyToMove, undefined, getAdjustedTimestamp(selectedDate));
                     }
                 }
             }
@@ -486,10 +511,10 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                 // Update Dest
                 const newTotal = destItem.quantity + srcItem.quantity;
                 const updatedDest = { ...destItem, quantity: newTotal, updatedAt: Date.now() };
-                onInventoryChange('UPDATE', updatedDest, srcItem.quantity, undefined, new Date(selectedDate).getTime());
+                onInventoryChange('UPDATE', updatedDest, srcItem.quantity, undefined, getAdjustedTimestamp(selectedDate));
                 // Delete Source (only if not copying)
                 if (!isCopy) {
-                    onInventoryChange('DELETE', srcItem, -srcItem.quantity, undefined, new Date(selectedDate).getTime());
+                    onInventoryChange('DELETE', srcItem, -srcItem.quantity, undefined, getAdjustedTimestamp(selectedDate));
                 }
             });
 
@@ -503,11 +528,11 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                         locations: [dest],
                         updatedAt: Date.now()
                     };
-                    onInventoryChange('ADD', newItem, srcItem.quantity, undefined, new Date(selectedDate).getTime());
+                    onInventoryChange('ADD', newItem, srcItem.quantity, undefined, getAdjustedTimestamp(selectedDate));
                 } else {
                     // MOVE: Update location
                     const updatedItem = { ...srcItem, locations: [dest], updatedAt: Date.now() };
-                    onInventoryChange('MOVE', updatedItem, 0, { previousLocation: srcItem.locations[0] }, new Date(selectedDate).getTime());
+                    onInventoryChange('MOVE', updatedItem, 0, { previousLocation: srcItem.locations[0] }, getAdjustedTimestamp(selectedDate));
                 }
             });
         };
@@ -543,7 +568,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
 
                 // 2. Handle Source (only delete if not copying)
                 if (!isCopy) {
-                    onInventoryChange('DELETE', item, -item.quantity, undefined, new Date(selectedDate).getTime());
+                    onInventoryChange('DELETE', item, -item.quantity, undefined, getAdjustedTimestamp(selectedDate));
                 }
             }
             // SCENARIO 2: Move/Copy to empty slot
@@ -556,7 +581,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                         locations: [dest],
                         updatedAt: Date.now()
                     };
-                    onInventoryChange('ADD', newItem, item.quantity, undefined, new Date(selectedDate).getTime());
+                    onInventoryChange('ADD', newItem, item.quantity, undefined, getAdjustedTimestamp(selectedDate));
                 } else {
                     // MOVE: Update location
                     const updatedItem = { ...item, locations: [dest], updatedAt: Date.now() };
