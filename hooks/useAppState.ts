@@ -168,9 +168,15 @@ export function useAppState() {
         try {
             if (pushLocalToCloud) {
                 // Push Mode: Save all local data to Cloud
+                // Ensure all products have the new fields to force GAS to create headers
+                const sanitizedProducts = products.map(p => ({
+                    ...p,
+                    countPerPallet: p.countPerPallet || 0
+                }));
+
                 await GASService.saveData(gasConfig.url, 'saveAll', {
                     inventory,
-                    products,
+                    products: sanitizedProducts,
                     transactions,
                     locations: masterLocations,
                     pickLists: savedPickLists

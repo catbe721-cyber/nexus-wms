@@ -160,7 +160,6 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
         productCode: '',
         name: '',
         defaultCategory: '',
-        postingGroup: '',
         defaultUnit: '',
         minStockLevel: 0,
         image: '',
