@@ -30,6 +30,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
     minStockLevel: 0,
     image: '',
     department: 'SHARED',
+    countPerPallet: 0,
     updatedAt: Date.now()
   });
 
@@ -100,6 +101,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
                 defaultUnit: row[4] || 'pcs',
                 minStockLevel: parseInt(row[5]) || 0,
                 image: row[6] || '',
+                countPerPallet: parseInt(row[7]) || 0,
                 updatedAt: Date.now()
               };
 
@@ -163,6 +165,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
         minStockLevel: 0,
         image: '',
         department: 'SHARED',
+        countPerPallet: 0,
         updatedAt: Date.now()
       });
     }
@@ -170,7 +173,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
   };
 
   const handleExportCSV = () => {
-    const headers = ['Code', 'Name', 'Category', 'Department', 'Unit', 'MinStock', 'ImageUrl'];
+    const headers = ['Code', 'Name', 'Category', 'Department', 'Unit', 'MinStock', 'ImageUrl', 'Count/Pallet'];
     const data = products.map(p => [
       p.productCode,
       p.name,
@@ -178,7 +181,8 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
       p.department || 'SHARED',
       p.defaultUnit || '',
       p.minStockLevel || 0,
-      p.image || ''
+      p.image || '',
+      p.countPerPallet || 0
     ]);
 
     const csvContent = generateCSV(headers, data);
@@ -313,6 +317,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Category</th>
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Dept</th>
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Unit</th>
+                <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Count/PLT</th>
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Min Stock</th>
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Updated</th>
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs text-right">Actions</th>
@@ -346,6 +351,11 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
                   <td className="px-6 py-3">
                     <span className={`px-2 py-1 rounded text-[10px] font-bold border ${p.minStockLevel && p.minStockLevel > 0 ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' : 'bg-slate-800 text-slate-600 border-white/5'}`}>
                       {p.minStockLevel || 0}
+                    </span>
+                  </td>
+                  <td className="px-6 py-3">
+                    <span className="px-2 py-1 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-white/5">
+                      {p.countPerPallet || 0}
                     </span>
                   </td>
                   <td className="px-6 py-3 text-slate-500 text-xs font-mono">
@@ -543,6 +553,20 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
                   className="w-full px-3 py-2 border border-orange-500/30 bg-black/40 rounded-lg text-orange-200 focus:ring-2 focus:ring-orange-500 outline-none"
                 />
                 <p className="text-xs text-orange-500/70 mt-1">Dashboard will alert if stock falls below this amount.</p>
+              </div>
+
+              <div className="bg-slate-800/30 p-4 rounded-lg border border-white/10">
+                <label className="block text-sm font-bold text-slate-400 mb-1 flex items-center gap-2 uppercase tracking-wide">
+                  <Boxes className="w-4 h-4" /> Count Per Pallet
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.countPerPallet}
+                  onChange={e => setFormData({ ...formData, countPerPallet: parseInt(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border border-white/10 bg-black/40 rounded-lg text-slate-200 focus:ring-2 focus:ring-primary outline-none"
+                />
+                <p className="text-xs text-slate-500/70 mt-1">Reference for pallet calculations.</p>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-white/10">

@@ -11,6 +11,7 @@ export interface Product {
   minStockLevel?: number;
   image?: string;
   department?: 'RTE' | 'RTC' | 'SHARED';
+  countPerPallet?: number;
   updatedAt?: number;
 }
 
