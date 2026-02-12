@@ -11,7 +11,9 @@ import {
     Legend,
     ChartData,
     ChartOptions,
-    Filler
+    Filler,
+    LineController,
+    BarController
 } from 'chart.js';
 // import ChartDataLabels from 'chartjs-plugin-datalabels'; // Disabled for safety
 import { Bar, Line, Chart } from 'react-chartjs-2';
@@ -34,7 +36,9 @@ ChartJS.register(
     Tooltip,
     Legend,
     // ChartDataLabels, // Potentially causing production crash
-    Filler
+    Filler,
+    LineController,
+    BarController
 );
 
 interface ItemAnalyticsPageProps {
