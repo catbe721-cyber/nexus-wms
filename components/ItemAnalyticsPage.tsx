@@ -82,174 +82,182 @@ const ItemAnalyticsPage: React.FC<ItemAnalyticsPageProps> = ({ inventory = [], t
     const dashboardData = useMemo(() => {
         if (!selectedProduct) return null;
 
-        // 1. Current Stock (Closing Stock)
-        const currentStockItems = inventory.filter(i => i.productCode === selectedProduct.productCode);
-        const currentStockQty = currentStockItems.reduce((acc, i) => acc + i.quantity, 0);
+        try {
+            // 1. Current Stock (Closing Stock)
+            const currentStockItems = inventory.filter(i => i.productCode === selectedProduct.productCode);
+            // FIX: Enforce number coercion
+            const currentStockQty = currentStockItems.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0);
 
-        // 2. Transaction History (Based on Time Range)
-        const today = startOfDay(new Date());
-        let startDate = subDays(today, 30);
-        let endDate = today;
+            // 2. Transaction History (Based on Time Range)
+            const today = startOfDay(new Date());
+            let startDate = subDays(today, 30);
+            let endDate = today;
 
-        switch (timeRange) {
-            case 'mtd':
-                startDate = startOfMonth(today);
-                endDate = today;
-                break;
-            case 'ytd':
-                startDate = startOfYear(today);
-                endDate = today;
-                break;
-            case '1y':
-                startDate = subYears(today, 1);
-                endDate = today;
-                break;
-            case '5y':
-                startDate = subYears(today, 5);
-                endDate = today;
-                break;
-            case 'max':
-                startDate = new Date(2018, 0, 1); // Jan 1, 2018
-                endDate = today;
-                break;
-        }
-
-        // Global constraint: Data starts from 2018
-        const minDataDate = new Date(2018, 0, 1);
-        if (startDate < minDataDate) {
-            startDate = minDataDate;
-        }
-
-        const relevantTransactions = transactions.filter(t => {
-            // Safety check for valid dates to prevent date-fns crashes
-            if (!t || !t.date) return false;
-            const d = new Date(t.date);
-            if (isNaN(d.getTime())) return false;
-
-            return t.productCode === selectedProduct.productCode &&
-                t.date >= startDate.getTime() &&
-                t.date <= endDate.getTime() + 86400000; // Include full end date
-        }).sort((a, b) => a.date - b.date);
-
-        // 3. Construct Daily Data (Base Layer)
-        const dailyStats: Record<string, { date: Date, in: number, out: number, adj: number, balance: number }> = {};
-        const intervalDays = eachDayOfInterval({ start: startDate, end: endDate });
-
-        // Metrics Accumulators
-        let mIn = 0;
-        let mOut = 0;
-
-        intervalDays.forEach(d => {
-            const key = format(d, 'yyyy-MM-dd');
-            dailyStats[key] = { date: d, in: 0, out: 0, adj: 0, balance: 0 };
-        });
-
-        relevantTransactions.forEach(t => {
-            const key = format(new Date(t.date), 'yyyy-MM-dd');
-
-            // Track totals for the period
-            if (t.type === 'INBOUND') mIn += t.quantity;
-            else if (t.type === 'OUTBOUND') mOut += Math.abs(t.quantity);
-            // We don't usually count ADJ/DELETE as "In/Out" flow, but as adjustments.
-
-            if (dailyStats[key]) {
-                if (t.type === 'INBOUND') dailyStats[key].in += t.quantity;
-                else if (t.type === 'OUTBOUND') dailyStats[key].out += Math.abs(t.quantity);
-                else if (t.type === 'ADJUSTMENT' || t.type === 'COUNT' || t.type === 'DELETE') dailyStats[key].adj += t.quantity;
+            switch (timeRange) {
+                case 'mtd':
+                    startDate = startOfMonth(today);
+                    endDate = today;
+                    break;
+                case 'ytd':
+                    startDate = startOfYear(today);
+                    endDate = today;
+                    break;
+                case '1y':
+                    startDate = subYears(today, 1);
+                    endDate = today;
+                    break;
+                case '5y':
+                    startDate = subYears(today, 5);
+                    endDate = today;
+                    break;
+                case 'max':
+                    startDate = new Date(2018, 0, 1); // Jan 1, 2018
+                    endDate = today;
+                    break;
             }
-        });
 
-        // 4. Calculate Daily Balances (Backwards from Current Stock)
-        let runningBalance = currentStockQty;
+            // Global constraint: Data starts from 2018
+            const minDataDate = new Date(2018, 0, 1);
+            if (startDate < minDataDate) {
+                startDate = minDataDate;
+            }
 
-        const gapTransactions = transactions.filter(t => {
-            if (!t || !t.date) return false;
-            return t.productCode === selectedProduct.productCode &&
-                t.date > endDate.getTime() + 86400000;
-        });
+            const relevantTransactions = transactions.filter(t => {
+                // Safety check for valid dates to prevent date-fns crashes
+                if (!t || !t.date) return false;
+                const d = new Date(t.date);
+                if (isNaN(d.getTime())) return false;
 
-        // Reverse-play gap
-        gapTransactions.forEach(t => {
-            if (t.type === 'INBOUND') runningBalance -= t.quantity;
-            else if (t.type === 'OUTBOUND') runningBalance += Math.abs(t.quantity);
-            else if (t.type === 'ADJUSTMENT' || t.type === 'COUNT' || t.type === 'DELETE') runningBalance -= t.quantity;
-        });
+                return t.productCode === selectedProduct.productCode &&
+                    t.date >= startDate.getTime() &&
+                    t.date <= endDate.getTime() + 86400000; // Include full end date
+            }).sort((a, b) => a.date - b.date);
 
-        // Now runningBalance is the Balance at the END of the interval.
-        // We can now work backwards through the interval days.
+            // 3. Construct Daily Data (Base Layer)
+            const dailyStats: Record<string, { date: Date, in: number, out: number, adj: number, balance: number }> = {};
+            const intervalDays = eachDayOfInterval({ start: startDate, end: endDate });
 
-        const sortedDailyKeys = Object.keys(dailyStats).sort(); // Ascending
-        const dailyArray = sortedDailyKeys.map(k => dailyStats[k]);
+            // Metrics Accumulators
+            let mIn = 0;
+            let mOut = 0;
 
-        // Work backwards
-        for (let i = dailyArray.length - 1; i >= 0; i--) {
-            const day = dailyArray[i];
-            day.balance = runningBalance;
+            intervalDays.forEach(d => {
+                const key = format(d, 'yyyy-MM-dd');
+                dailyStats[key] = { date: d, in: 0, out: 0, adj: 0, balance: 0 };
+            });
 
-            // Prepare balance for previous day
-            runningBalance = runningBalance - day.in + day.out - day.adj;
-        }
+            relevantTransactions.forEach(t => {
+                const key = format(new Date(t.date), 'yyyy-MM-dd');
+                const qty = Number(t.quantity) || 0; // FIX: Coerce
 
-        const openingStock = runningBalance;
+                // Track totals for the period
+                if (t.type === 'INBOUND') mIn += qty;
+                else if (t.type === 'OUTBOUND') mOut += Math.abs(qty);
+                // We don't usually count ADJ/DELETE as "In/Out" flow, but as adjustments.
 
-        // 5. Aggregate based on ViewMode
-        if (viewMode === 'daily') {
-            const totalIn = dailyArray.reduce((sum, d) => sum + d.in, 0);
-            const totalOut = dailyArray.reduce((sum, d) => sum + d.out, 0);
-            const totalAdj = dailyArray.reduce((sum, d) => sum + d.adj, 0);
-
-            return {
-                stats: dailyArray,
-                waterfall: { inventoryStart: openingStock, totalIn, totalOut, totalAdj, inventoryEnd: dailyArray[dailyArray.length - 1].balance },
-                periodMetrics: { in: mIn, out: mOut }
-            };
-        } else {
-            // Aggregation Logic
-            const groups: Record<string, { date: Date, in: number, out: number, adj: number, balance: number, startBalance: number }> = {};
-
-            let groupStartBalance = openingStock; // Initial start
-
-            dailyArray.forEach(day => {
-                let key = '';
-                if (viewMode === 'monthly') key = format(day.date, 'yyyy-MM');
-                else if (viewMode === 'quarterly') key = `${getYear(day.date)}-Q${getQuarter(day.date)}`;
-                else if (viewMode === 'yearly') key = format(day.date, 'yyyy');
-
-                if (!groups[key]) {
-                    groups[key] = {
-                        date: day.date, // Start date of group
-                        in: 0,
-                        out: 0,
-                        adj: 0,
-                        balance: 0,
-                        startBalance: groupStartBalance
-                    };
+                if (dailyStats[key]) {
+                    if (t.type === 'INBOUND') dailyStats[key].in += qty;
+                    else if (t.type === 'OUTBOUND') dailyStats[key].out += Math.abs(qty);
+                    else if (t.type === 'ADJUSTMENT' || t.type === 'COUNT' || t.type === 'DELETE') dailyStats[key].adj += qty;
                 }
-
-                const g = groups[key];
-                g.in += day.in;
-                g.out += day.out;
-                g.adj += day.adj;
-                g.balance = day.balance; // Update to latest day's balance
-
-                // The start balance for the NEXT group will be this day's balance
-                groupStartBalance = day.balance;
             });
 
-            // Re-calc start balances strictly
-            const groupedArray = Object.values(groups).sort((a, b) => a.date.getTime() - b.date.getTime());
+            // 4. Calculate Daily Balances (Backwards from Current Stock)
+            let runningBalance = currentStockQty;
 
-            let currentStart = openingStock;
-            groupedArray.forEach(g => {
-                g.startBalance = currentStart;
-                currentStart = g.balance;
+            const gapTransactions = transactions.filter(t => {
+                if (!t || !t.date) return false;
+                return t.productCode === selectedProduct.productCode &&
+                    t.date > endDate.getTime() + 86400000;
             });
 
-            return {
-                stats: groupedArray,
-                waterfall: { inventoryStart: openingStock, inventoryEnd: currentStart },
-                periodMetrics: { in: mIn, out: mOut }
-            };
+            // Reverse-play gap
+            gapTransactions.forEach(t => {
+                const qty = Number(t.quantity) || 0; // FIX: Coerce
+                if (t.type === 'INBOUND') runningBalance -= qty;
+                else if (t.type === 'OUTBOUND') runningBalance += Math.abs(qty);
+                else if (t.type === 'ADJUSTMENT' || t.type === 'COUNT' || t.type === 'DELETE') runningBalance -= qty;
+            });
+
+            // Now runningBalance is the Balance at the END of the interval.
+            // We can now work backwards through the interval days.
+
+            const sortedDailyKeys = Object.keys(dailyStats).sort(); // Ascending
+            const dailyArray = sortedDailyKeys.map(k => dailyStats[k]);
+
+            // Work backwards
+            for (let i = dailyArray.length - 1; i >= 0; i--) {
+                const day = dailyArray[i];
+                day.balance = runningBalance;
+
+                // Prepare balance for previous day
+                runningBalance = runningBalance - day.in + day.out - day.adj;
+            }
+
+            const openingStock = runningBalance;
+
+            // 5. Aggregate based on ViewMode
+            if (viewMode === 'daily') {
+                const totalIn = dailyArray.reduce((sum, d) => sum + d.in, 0);
+                const totalOut = dailyArray.reduce((sum, d) => sum + d.out, 0);
+                const totalAdj = dailyArray.reduce((sum, d) => sum + d.adj, 0);
+
+                return {
+                    stats: dailyArray,
+                    waterfall: { inventoryStart: openingStock, totalIn, totalOut, totalAdj, inventoryEnd: dailyArray[dailyArray.length - 1].balance },
+                    periodMetrics: { in: mIn, out: mOut }
+                };
+            } else {
+                // Aggregation Logic
+                const groups: Record<string, { date: Date, in: number, out: number, adj: number, balance: number, startBalance: number }> = {};
+
+                let groupStartBalance = openingStock; // Initial start
+
+                dailyArray.forEach(day => {
+                    let key = '';
+                    if (viewMode === 'monthly') key = format(day.date, 'yyyy-MM');
+                    else if (viewMode === 'quarterly') key = `${getYear(day.date)}-Q${getQuarter(day.date)}`;
+                    else if (viewMode === 'yearly') key = format(day.date, 'yyyy');
+
+                    if (!groups[key]) {
+                        groups[key] = {
+                            date: day.date, // Start date of group
+                            in: 0,
+                            out: 0,
+                            adj: 0,
+                            balance: 0,
+                            startBalance: groupStartBalance
+                        };
+                    }
+
+                    const g = groups[key];
+                    g.in += day.in;
+                    g.out += day.out;
+                    g.adj += day.adj;
+                    g.balance = day.balance; // Update to latest day's balance
+
+                    // The start balance for the NEXT group will be this day's balance
+                    groupStartBalance = day.balance;
+                });
+
+                // Re-calc start balances strictly
+                const groupedArray = Object.values(groups).sort((a, b) => a.date.getTime() - b.date.getTime());
+
+                let currentStart = openingStock;
+                groupedArray.forEach(g => {
+                    g.startBalance = currentStart;
+                    currentStart = g.balance;
+                });
+
+                return {
+                    stats: groupedArray,
+                    waterfall: { inventoryStart: openingStock, inventoryEnd: currentStart },
+                    periodMetrics: { in: mIn, out: mOut }
+                };
+            }
+        } catch (error) {
+            console.error("ItemAnalyticsPage: Error calculating dashboard data", error);
+            return null;
         }
 
     }, [selectedProduct, inventory, transactions, timeRange, viewMode]);
