@@ -13,7 +13,7 @@ import {
     ChartOptions,
     Filler
 } from 'chart.js';
-import ChartDataLabels from 'chartjs-plugin-datalabels';
+// import ChartDataLabels from 'chartjs-plugin-datalabels'; // Disabled for safety
 import { Bar, Line, Chart } from 'react-chartjs-2';
 import { InventoryItem, Transaction, Product } from '../types';
 import { Search, RotateCcw, X, Calendar, ArrowUp, ArrowDown, Box, AlertTriangle } from 'lucide-react';
@@ -33,7 +33,7 @@ ChartJS.register(
     Title,
     Tooltip,
     Legend,
-    ChartDataLabels,
+    // ChartDataLabels, // Potentially causing production crash
     Filler
 );
 
@@ -315,29 +315,27 @@ const ItemAnalyticsPage: React.FC<ItemAnalyticsPageProps> = ({ inventory = [], t
         datasets: [
             {
                 type: 'line' as const,
-                label: 'Balance Line',
-                // FIX: Clamp negative values to 0 as per user request
-                data: dashboardData?.stats.map((d: any) => Math.max(0, d.balance)) || [],
-                borderColor: '#3b82f6', // Blue
-                borderWidth: 2,
-                pointRadius: 3,
-                pointBackgroundColor: '#3b82f6',
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2,
-                tension: 0.1,
-                order: 0,
-                datalabels: {
-                    display: true,
-                    align: 'top',
-                    anchor: 'start',
-                    offset: 8,
-                    color: '#f1f5f9',
-                    backgroundColor: 'rgba(15, 23, 42, 0.7)',
-                    borderRadius: 4,
-                    padding: { top: 4, bottom: 4, left: 6, right: 6 },
-                    font: { weight: 'bold', size: 12 },
-                    formatter: (value) => value
-                }
+                label: 'Inventory Level',
+                data: dashboardData?.stats.map((d: any) => d.balance) || [],
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 3,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 0,
+                pointHoverRadius: 6,
+                yAxisID: 'y',
+                order: 1,
+            },
+            {
+                type: 'bar' as const,
+                label: 'Adjustment',
+                data: dashboardData?.stats.map((d: any) => d.adj) || [],
+                backgroundColor: 'rgba(234, 179, 8, 0.5)',
+                borderColor: 'rgba(234, 179, 8, 1)',
+                borderWidth: 1,
+                borderRadius: 4,
+                order: 3
             },
             {
                 type: 'line' as const,
@@ -348,14 +346,6 @@ const ItemAnalyticsPage: React.FC<ItemAnalyticsPageProps> = ({ inventory = [], t
                 borderDash: [6, 4],
                 pointRadius: 0,
                 order: 0,
-                datalabels: {
-                    display: true,
-                    align: 'right',
-                    anchor: 'end',
-                    color: '#f87171',
-                    font: { weight: 'bold', size: 11 },
-                    formatter: (value, context) => context.dataIndex === context.dataset.data.length - 1 ? `Safety: ${value}` : ''
-                }
             },
             {
                 type: 'bar' as const,
@@ -367,7 +357,6 @@ const ItemAnalyticsPage: React.FC<ItemAnalyticsPageProps> = ({ inventory = [], t
                 barPercentage: 0.9,
                 categoryPercentage: 0.9,
                 order: 1,
-                datalabels: { display: false }
             }
         ]
     };
@@ -546,79 +535,90 @@ const ItemAnalyticsPage: React.FC<ItemAnalyticsPageProps> = ({ inventory = [], t
             </div>
 
             {selectedProduct ? (
-                <div className="animate-in slide-in-from-bottom-4 duration-500 space-y-6">
+                !dashboardData ? (
+                    <div className="flex flex-col items-center justify-center p-12 mt-8 bg-slate-900/50 rounded-xl border border-red-500/20 animate-in fade-in zoom-in-95 duration-300">
+                        <AlertTriangle className="w-16 h-16 text-red-500 mb-4 opacity-80" />
+                        <h2 className="text-2xl font-bold text-white mb-2 font-display">Analysis Not Available</h2>
+                        <p className="text-slate-400 text-center max-w-md">
+                            We could not process the history for <span className="text-white font-mono">{selectedProduct.productCode}</span>.
+                            <br />The data may contain invalid dates or quantities.
+                        </p>
+                    </div>
+                ) : (
+                    <div className="animate-in slide-in-from-bottom-4 duration-500 space-y-6">
 
-                    {/* Summary Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        {/* Current Balance */}
-                        <div className="bg-slate-900/60 p-4 rounded-xl border border-white/10 backdrop-blur-md shadow">
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="p-2 bg-blue-500/20 rounded-lg">
-                                    <Box className="w-5 h-5 text-blue-400" />
+                        {/* Summary Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            {/* Current Balance */}
+                            <div className="bg-slate-900/60 p-4 rounded-xl border border-white/10 backdrop-blur-md shadow">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-2 bg-blue-500/20 rounded-lg">
+                                        <Box className="w-5 h-5 text-blue-400" />
+                                    </div>
+                                    <span className="text-slate-400 text-sm font-bold uppercase tracking-wider">Current Balance</span>
                                 </div>
-                                <span className="text-slate-400 text-sm font-bold uppercase tracking-wider">Current Balance</span>
+                                <div className="text-2xl font-bold text-white font-display">
+                                    {inventory.filter(i => i.productCode === selectedProduct.productCode).reduce((a, b) => a + b.quantity, 0)}
+                                    <span className="text-sm font-light text-slate-500 ml-1">{selectedProduct.defaultUnit || 'Units'}</span>
+                                </div>
                             </div>
-                            <div className="text-2xl font-bold text-white font-display">
-                                {inventory.filter(i => i.productCode === selectedProduct.productCode).reduce((a, b) => a + b.quantity, 0)}
-                                <span className="text-sm font-light text-slate-500 ml-1">{selectedProduct.defaultUnit || 'Units'}</span>
+
+                            {/* Min Stock Level */}
+                            <div className="bg-slate-900/60 p-4 rounded-xl border border-white/10 backdrop-blur-md shadow">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-2 bg-amber-500/20 rounded-lg">
+                                        <AlertTriangle className="w-5 h-5 text-amber-400" />
+                                    </div>
+                                    <span className="text-slate-400 text-sm font-bold uppercase tracking-wider">Min Stock</span>
+                                </div>
+                                <div className="text-2xl font-bold text-white font-display">
+                                    {selectedProduct.minStockLevel || 0}
+                                    <span className="text-sm font-light text-slate-500 ml-1">Threshold</span>
+                                </div>
+                            </div>
+
+                            {/* Period Inbound */}
+                            <div className="bg-slate-900/60 p-4 rounded-xl border border-white/10 backdrop-blur-md shadow">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-2 bg-emerald-500/20 rounded-lg">
+                                        <ArrowUp className="w-5 h-5 text-emerald-400" />
+                                    </div>
+                                    <span className="text-slate-400 text-sm font-bold uppercase tracking-wider">Period In</span>
+                                </div>
+                                <div className="text-2xl font-bold text-emerald-400 font-display">
+                                    +{summaryMetrics?.in || 0}
+                                </div>
+                            </div>
+
+                            {/* Period Outbound */}
+                            <div className="bg-slate-900/60 p-4 rounded-xl border border-white/10 backdrop-blur-md shadow">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-2 bg-red-500/20 rounded-lg">
+                                        <ArrowDown className="w-5 h-5 text-red-400" />
+                                    </div>
+                                    <span className="text-slate-400 text-sm font-bold uppercase tracking-wider">Period Out</span>
+                                </div>
+                                <div className="text-2xl font-bold text-red-400 font-display">
+                                    -{summaryMetrics?.out || 0}
+                                </div>
                             </div>
                         </div>
 
-                        {/* Min Stock Level */}
-                        <div className="bg-slate-900/60 p-4 rounded-xl border border-white/10 backdrop-blur-md shadow">
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="p-2 bg-amber-500/20 rounded-lg">
-                                    <AlertTriangle className="w-5 h-5 text-amber-400" />
+                        {/* Chart 1: Daily Waterfall */}
+                        <div className="bg-slate-900/60 p-6 rounded-xl border border-white/10 backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.3)]">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-lg font-bold text-slate-200 font-display">Daily Inventory Waterfall</h3>
+                                <div className="flex gap-4 text-xs">
+                                    <span className="flex items-center gap-1 text-slate-400"><div className="w-3 h-3 bg-emerald-500 rounded-sm"></div> Net Increase</span>
+                                    <span className="flex items-center gap-1 text-slate-400"><div className="w-3 h-3 bg-red-500 rounded-sm"></div> Net Decrease</span>
                                 </div>
-                                <span className="text-slate-400 text-sm font-bold uppercase tracking-wider">Min Stock</span>
                             </div>
-                            <div className="text-2xl font-bold text-white font-display">
-                                {selectedProduct.minStockLevel || 0}
-                                <span className="text-sm font-light text-slate-500 ml-1">Threshold</span>
-                            </div>
-                        </div>
-
-                        {/* Period Inbound */}
-                        <div className="bg-slate-900/60 p-4 rounded-xl border border-white/10 backdrop-blur-md shadow">
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="p-2 bg-emerald-500/20 rounded-lg">
-                                    <ArrowUp className="w-5 h-5 text-emerald-400" />
-                                </div>
-                                <span className="text-slate-400 text-sm font-bold uppercase tracking-wider">Period In</span>
-                            </div>
-                            <div className="text-2xl font-bold text-emerald-400 font-display">
-                                +{summaryMetrics?.in || 0}
-                            </div>
-                        </div>
-
-                        {/* Period Outbound */}
-                        <div className="bg-slate-900/60 p-4 rounded-xl border border-white/10 backdrop-blur-md shadow">
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="p-2 bg-red-500/20 rounded-lg">
-                                    <ArrowDown className="w-5 h-5 text-red-400" />
-                                </div>
-                                <span className="text-slate-400 text-sm font-bold uppercase tracking-wider">Period Out</span>
-                            </div>
-                            <div className="text-2xl font-bold text-red-400 font-display">
-                                -{summaryMetrics?.out || 0}
+                            <div className="h-96">
+                                <Chart type='bar' data={dailyWaterfallData} options={waterfallOptions} />
                             </div>
                         </div>
                     </div>
-
-                    {/* Chart 1: Daily Waterfall */}
-                    <div className="bg-slate-900/60 p-6 rounded-xl border border-white/10 backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.3)]">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold text-slate-200 font-display">Daily Inventory Waterfall</h3>
-                            <div className="flex gap-4 text-xs">
-                                <span className="flex items-center gap-1 text-slate-400"><div className="w-3 h-3 bg-emerald-500 rounded-sm"></div> Net Increase</span>
-                                <span className="flex items-center gap-1 text-slate-400"><div className="w-3 h-3 bg-red-500 rounded-sm"></div> Net Decrease</span>
-                            </div>
-                        </div>
-                        <div className="h-96">
-                            <Chart type='bar' data={dailyWaterfallData} options={waterfallOptions} />
-                        </div>
-                    </div>
-                </div>
+                )
             ) : (
                 <div className="flex flex-col items-center justify-center p-20 text-slate-500 border border-dashed border-slate-700 rounded-xl bg-slate-800/20">
                     <Search className="w-12 h-12 mb-4 opacity-50" />
