@@ -33,7 +33,8 @@ ChartJS.register(
     Title,
     Tooltip,
     Legend,
-    ChartDataLabels
+    ChartDataLabels,
+    Filler
 );
 
 interface ItemAnalyticsPageProps {
@@ -42,7 +43,7 @@ interface ItemAnalyticsPageProps {
     products: Product[];
 }
 
-const ItemAnalyticsPage: React.FC<ItemAnalyticsPageProps> = ({ inventory, transactions, products }) => {
+const ItemAnalyticsPage: React.FC<ItemAnalyticsPageProps> = ({ inventory = [], transactions = [], products = [] }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [timeRange, setTimeRange] = useState<TimeRange>('mtd');

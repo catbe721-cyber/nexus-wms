@@ -220,7 +220,7 @@ export function useAppState() {
                 if (data.products) setProducts(data.products);
                 if (data.transactions) setTransactions(data.transactions);
 
-                if (data.transactions) setTransactions(data.transactions);
+
 
                 // MERGE cloud locations to sync 'disabled' status, while preserving local AREA_CONFIG schema
                 if (data.locations) {
