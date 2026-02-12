@@ -44,6 +44,7 @@ import ConfirmModal, { ModalType } from './components/ConfirmModal';
 import SidebarItem from './components/SidebarItem';
 import DashboardPage from './components/DashboardPage';
 import ItemAnalyticsPage from './components/ItemAnalyticsPage';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { GASService } from './services/gasApi';
 
 // Updated initial data based on user request - USING NEW SCHEMA (productCode only)
@@ -255,11 +256,13 @@ function App() {
             } />
 
             <Route path="/analytics" element={
-              <ItemAnalyticsPage
-                inventory={inventory}
-                transactions={transactions}
-                products={products}
-              />
+              <ErrorBoundary name="Item Analytics Page">
+                <ItemAnalyticsPage
+                  inventory={inventory}
+                  transactions={transactions}
+                  products={products}
+                />
+              </ErrorBoundary>
             } />
 
             <Route path="/inbound" element={

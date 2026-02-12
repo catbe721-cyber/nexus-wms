@@ -302,11 +302,15 @@ const ItemAnalyticsPage: React.FC<ItemAnalyticsPageProps> = ({ inventory = [], t
 
     const dailyWaterfallData: ChartData<'bar' | 'line'> = {
         labels: dashboardData?.stats.map((d: any) => {
-            if (viewMode === 'daily') return format(d.date, 'MMM dd');
-            if (viewMode === 'monthly') return format(d.date, 'MMM yyyy');
-            if (viewMode === 'quarterly') return `Q${getQuarter(d.date)} ${getYear(d.date)}`;
-            if (viewMode === 'yearly') return format(d.date, 'yyyy');
-            return format(d.date, 'MMM dd');
+            try {
+                if (viewMode === 'daily') return format(d.date, 'MMM dd');
+                if (viewMode === 'monthly') return format(d.date, 'MMM yyyy');
+                if (viewMode === 'quarterly') return `Q${getQuarter(d.date)} ${getYear(d.date)}`;
+                if (viewMode === 'yearly') return format(d.date, 'yyyy');
+                return format(d.date, 'MMM dd');
+            } catch (e) {
+                return 'Invalid Date';
+            }
         }) || [],
         datasets: [
             {
