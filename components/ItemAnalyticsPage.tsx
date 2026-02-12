@@ -15,7 +15,7 @@ import {
     LineController,
     BarController
 } from 'chart.js';
-// import ChartDataLabels from 'chartjs-plugin-datalabels'; // Disabled for safety
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { Bar, Line, Chart } from 'react-chartjs-2';
 import { InventoryItem, Transaction, Product } from '../types';
 import { Search, RotateCcw, X, Calendar, ArrowUp, ArrowDown, Box, AlertTriangle } from 'lucide-react';
@@ -35,7 +35,7 @@ ChartJS.register(
     Title,
     Tooltip,
     Legend,
-    // ChartDataLabels, // Potentially causing production crash
+    ChartDataLabels,
     Filler,
     LineController,
     BarController
@@ -381,7 +381,19 @@ const ItemAnalyticsPage: React.FC<ItemAnalyticsPageProps> = ({ inventory = [], t
         plugins: {
             legend: { display: false },
             // @ts-ignore
-            datalabels: { display: false },
+            datalabels: {
+                display: 'auto',
+                align: 'top',
+                anchor: 'start',
+                offset: 8,
+                color: '#f1f5f9',
+                font: { weight: 'bold', size: 11 },
+                formatter: (value: any, context: any) => {
+                    // Only show for the line chart (Balance), excluding Safety Stock
+                    if (context.dataset.type === 'line' && context.dataset.label !== 'Safety Stock') return value;
+                    return ''; // Hide for others
+                }
+            },
             tooltip: {
                 callbacks: {
                     label: (context) => {
@@ -389,21 +401,30 @@ const ItemAnalyticsPage: React.FC<ItemAnalyticsPageProps> = ({ inventory = [], t
                         if (context.dataset.type === 'line') {
                             return `Balance: ${context.raw}`;
                         }
+                        // Handle Waterfall dataset (tuple [start, end])
                         const raw = context.raw as [number, number];
-                        const start = raw[0];
-                        const end = raw[1];
-                        const diff = end - start;
-                        return `Change: ${diff > 0 ? '+' : ''}${diff}`;
+                        if (Array.isArray(raw)) {
+                            const start = raw[0];
+                            const end = raw[1];
+                            const diff = end - start;
+                            return `Change: ${diff > 0 ? '+' : ''}${diff}`;
+                        }
+                        return '';
                     },
                     afterLabel: (context) => {
                         if (context.dataset.type === 'line') return '';
+                        // Simple stats for all bars
                         const idx = context.dataIndex;
                         const day = dashboardData?.stats[idx];
                         if (!day) return '';
-                        return `In: ${day.in} | Out: ${day.out} | Adj: ${day.adj}`;
+                        // Only show detailed breakdown for the waterfall bars
+                        if (context.dataset.label === 'Stock Level') {
+                            return `In: ${day.in} | Out: ${day.out} | Adj: ${day.adj}`;
+                        }
+                        return '';
                     }
                 },
-                filter: (item) => item.dataset.label !== 'Safety Stock'
+                filter: (item) => item.dataset.label !== 'Safety Stock' && item.dataset.label !== 'Adjustment'
             }
         },
         scales: {
