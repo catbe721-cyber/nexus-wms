@@ -120,11 +120,16 @@ const ItemAnalyticsPage: React.FC<ItemAnalyticsPageProps> = ({ inventory = [], t
             startDate = minDataDate;
         }
 
-        const relevantTransactions = transactions.filter(t =>
-            t.productCode === selectedProduct.productCode &&
-            t.date >= startDate.getTime() &&
-            t.date <= endDate.getTime() + 86400000 // Include full end date
-        ).sort((a, b) => a.date - b.date);
+        const relevantTransactions = transactions.filter(t => {
+            // Safety check for valid dates to prevent date-fns crashes
+            if (!t || !t.date) return false;
+            const d = new Date(t.date);
+            if (isNaN(d.getTime())) return false;
+
+            return t.productCode === selectedProduct.productCode &&
+                t.date >= startDate.getTime() &&
+                t.date <= endDate.getTime() + 86400000; // Include full end date
+        }).sort((a, b) => a.date - b.date);
 
         // 3. Construct Daily Data (Base Layer)
         const dailyStats: Record<string, { date: Date, in: number, out: number, adj: number, balance: number }> = {};
@@ -157,10 +162,11 @@ const ItemAnalyticsPage: React.FC<ItemAnalyticsPageProps> = ({ inventory = [], t
         // 4. Calculate Daily Balances (Backwards from Current Stock)
         let runningBalance = currentStockQty;
 
-        const gapTransactions = transactions.filter(t =>
-            t.productCode === selectedProduct.productCode &&
-            t.date > endDate.getTime() + 86400000
-        );
+        const gapTransactions = transactions.filter(t => {
+            if (!t || !t.date) return false;
+            return t.productCode === selectedProduct.productCode &&
+                t.date > endDate.getTime() + 86400000;
+        });
 
         // Reverse-play gap
         gapTransactions.forEach(t => {
