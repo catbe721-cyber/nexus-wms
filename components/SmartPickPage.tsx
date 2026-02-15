@@ -63,7 +63,22 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
     // --- Persistence ---
     useEffect(() => {
         try {
-            localStorage.setItem('nexuswms_smartpick_manifests', JSON.stringify(manifests));
+            // OPTIMIZATION: Only keep the 20 most recent manifests locally
+            const MAX_MANIFESTS = 20;
+            const dates = Object.keys(manifests).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+
+            if (dates.length > MAX_MANIFESTS) {
+                const authorizedKeys = new Set(dates.slice(0, MAX_MANIFESTS));
+                const prunedManifests: Record<string, ManifestData> = {};
+
+                authorizedKeys.forEach(key => {
+                    if (manifests[key]) prunedManifests[key] = manifests[key];
+                });
+
+                localStorage.setItem('nexuswms_smartpick_manifests', JSON.stringify(prunedManifests));
+            } else {
+                localStorage.setItem('nexuswms_smartpick_manifests', JSON.stringify(manifests));
+            }
         } catch (e) { console.error("Failed to save manifests", e); }
     }, [manifests]);
 

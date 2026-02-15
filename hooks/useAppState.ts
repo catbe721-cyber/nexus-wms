@@ -149,7 +149,13 @@ export function useAppState() {
 
     useEffect(() => { safeSave('nexuswms_inventory', inventory); }, [inventory]);
     useEffect(() => { safeSave('nexuswms_products', products); }, [products]);
-    useEffect(() => { safeSave('nexuswms_transactions', transactions); }, [transactions]);
+    // OPTIMIZATION: Only save the last 1000 transactions locally to prevent LocalStorage Quota Exceeded crash.
+    // Full history is preserved in Google Sheets (Cloud).
+    useEffect(() => {
+        const RECENT_LIMIT = 1000;
+        const recentTransactions = transactions.slice(0, RECENT_LIMIT);
+        safeSave('nexuswms_transactions', recentTransactions);
+    }, [transactions]);
     useEffect(() => { safeSave('nexuswms_picklists', savedPickLists); }, [savedPickLists]);
     useEffect(() => { safeSave('nexuswms_locations_v3', masterLocations); }, [masterLocations]);
     useEffect(() => { safeSave('nexuswms_gas_config', gasConfig); }, [gasConfig]);
