@@ -12,7 +12,7 @@ const SHEET_NAMES = {
 };
 
 // Replace with your actual folder ID
-const IMAGE_FOLDER_ID = '1PITwRZ5C1i2JkBib-7bjX4SHfuppTv_z'; 
+const IMAGE_FOLDER_ID = '1MDItlQ_iNshEo1I0w1GKJQuXEXIK04fC'; 
 
 // ==========================================
 // MAIN REQUES HANDLERS
@@ -109,11 +109,27 @@ function doPost(e) {
 
 /**
  * Uploads a base64 image to Google Drive and sets it to public.
- * @param {Object} data - { name: string, type: string, base64: string }
+ * @param {Object} data - { name: string, type: string, base64: string, folderName?: string }
  */
 function uploadImage(data) {
   try {
-    const folder = DriveApp.getFolderById(IMAGE_FOLDER_ID);
+    let folderId = IMAGE_FOLDER_ID; // Default folder
+
+    // If a specific folder name is provided, try to find or create it within the main folder
+    if (data.folderName) {
+      const parentFolder = DriveApp.getFolderById(IMAGE_FOLDER_ID);
+      const folders = parentFolder.getFoldersByName(data.folderName);
+      
+      if (folders.hasNext()) {
+        folderId = folders.next().getId();
+      } else {
+        // Create new folder
+        const newFolder = parentFolder.createFolder(data.folderName);
+        folderId = newFolder.getId();
+      }
+    }
+
+    const folder = DriveApp.getFolderById(folderId);
     
     // Decode base64 
     // Handle potential data URI prefix if present
@@ -121,6 +137,14 @@ function uploadImage(data) {
     const base64Data = parts.length > 1 ? parts[1] : parts[0];
     
     const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), data.type, data.name);
+    
+    // Check if file with same name exists and trash it (Replace logic)
+    const existingFiles = folder.getFilesByName(data.name);
+    while (existingFiles.hasNext()) {
+      const existingFile = existingFiles.next();
+      existingFile.setTrashed(true);
+    }
+    
     const file = folder.createFile(blob);
     
     // Set permission to anyone with link (so it can be viewed in the app)

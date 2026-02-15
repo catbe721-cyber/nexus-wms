@@ -242,121 +242,123 @@ function App() {
 
         {/* Content Area */}
         <main className="flex-1 overflow-auto p-4 md:p-8">
-          <Routes>
-            <Route path="/dashboard" element={
-              <DashboardPage
-                inventory={inventory}
-                inventorySummary={inventorySummary}
-                products={products}
-                lowStockItems={lowStockItems}
-                topMovers={topMovers}
-                deadStock={deadStock}
-                transactions={transactions}
-              />
-            } />
-
-            <Route path="/analytics" element={
-              <ErrorBoundary name="Item Analytics Page">
-                <ItemAnalyticsPage
+          <ErrorBoundary name="Global App Route">
+            <Routes>
+              <Route path="/dashboard" element={
+                <DashboardPage
                   inventory={inventory}
-                  transactions={transactions}
+                  inventorySummary={inventorySummary}
                   products={products}
+                  lowStockItems={lowStockItems}
+                  topMovers={topMovers}
+                  deadStock={deadStock}
+                  transactions={transactions}
                 />
-              </ErrorBoundary>
-            } />
+              } />
 
-            <Route path="/inbound" element={
-              <InventoryForm
-                products={products}
-                inventory={inventory}
-                masterLocations={masterLocations}
-                initialData={editingItem}
-                onSave={handleSaveInventory}
-                onCancel={() => {
-                  navigate('/inventory');
-                  setEditingItem(null);
-                }}
-              />
-            } />
+              <Route path="/analytics" element={
+                <ErrorBoundary name="Item Analytics Page">
+                  <ItemAnalyticsPage
+                    inventory={inventory}
+                    transactions={transactions}
+                    products={products}
+                  />
+                </ErrorBoundary>
+              } />
 
-            <Route path="/outbound" element={
-              <OutboundForm
-                products={products}
-                inventory={inventory}
-                onProcess={handleOutboundProcess}
-                onCancel={() => navigate('/dashboard')}
-                savedPickLists={savedPickLists}
-                onSaveList={(name, items) => {
-                  const newList: SavedPickList = {
-                    id: generateId(),
-                    name,
-                    items,
-                    createdAt: Date.now()
-                  };
-                  setSavedPickLists(prev => [...prev, newList]);
-                }}
-                onDeleteList={(id) => setSavedPickLists(prev => prev.filter(l => l.id !== id))}
-              />
-            } />
+              <Route path="/inbound" element={
+                <InventoryForm
+                  products={products}
+                  inventory={inventory}
+                  masterLocations={masterLocations}
+                  initialData={editingItem}
+                  onSave={handleSaveInventory}
+                  onCancel={() => {
+                    navigate('/inventory');
+                    setEditingItem(null);
+                  }}
+                />
+              } />
 
-            <Route path="/inventory" element={
-              <InventoryList
-                inventory={inventory}
-                products={products}
-              // We might need to pass an edit handler if InventoryList has an edit button
-              // But InventoryList usually handles its own "Edit" button logic by calling a provided callback?
-              // Checking InventoryList props... it usually takes `onEdit`? No, it probably uses internal context or specific props.
-              // Let's assume standard behavior or check if we need to pass a callback.
-              // For now, if InventoryList uses `onEdit`, we pass `handleEditRedirect`.
-              />
-            } />
+              <Route path="/outbound" element={
+                <OutboundForm
+                  products={products}
+                  inventory={inventory}
+                  onProcess={handleOutboundProcess}
+                  onCancel={() => navigate('/dashboard')}
+                  savedPickLists={savedPickLists}
+                  onSaveList={(name, items) => {
+                    const newList: SavedPickList = {
+                      id: generateId(),
+                      name,
+                      items,
+                      createdAt: Date.now()
+                    };
+                    setSavedPickLists(prev => [...prev, newList]);
+                  }}
+                  onDeleteList={(id) => setSavedPickLists(prev => prev.filter(l => l.id !== id))}
+                />
+              } />
 
-            <Route path="/history" element={
-              <ItemEntriesPage transactions={transactions} />
-            } />
+              <Route path="/inventory" element={
+                <InventoryList
+                  inventory={inventory}
+                  products={products}
+                // We might need to pass an edit handler if InventoryList has an edit button
+                // But InventoryList usually handles its own "Edit" button logic by calling a provided callback?
+                // Checking InventoryList props... it usually takes `onEdit`? No, it probably uses internal context or specific props.
+                // Let's assume standard behavior or check if we need to pass a callback.
+                // For now, if InventoryList uses `onEdit`, we pass `handleEditRedirect`.
+                />
+              } />
 
-            <Route path="/notes" element={
-              <SpecialNotesPage transactions={transactions} />
-            } />
+              <Route path="/history" element={
+                <ItemEntriesPage transactions={transactions} />
+              } />
 
-            <Route path="/map" element={
-              <WarehouseMap
-                inventory={inventory}
-                products={products}
-                masterLocations={masterLocations}
-                onInventoryChange={handleMapInventoryChange}
-                onToggleBinStatus={actions.handleToggleBinStatus}
-              />
-            } />
+              <Route path="/notes" element={
+                <SpecialNotesPage transactions={transactions} />
+              } />
 
-            <Route path="/products" element={
-              <ProductPage
-                products={products}
-                onUpdateProducts={handleUpdateProducts}
-                gasUrl={gasConfig.url}
-              />
-            } />
+              <Route path="/map" element={
+                <WarehouseMap
+                  inventory={inventory}
+                  products={products}
+                  masterLocations={masterLocations}
+                  onInventoryChange={handleMapInventoryChange}
+                  onToggleBinStatus={actions.handleToggleBinStatus}
+                />
+              } />
 
-            <Route path="/smart-pick" element={
-              <SmartPickPage
-                inventory={inventory}
-                products={products}
-                onProcessOutbound={handleOutboundProcess}
-              />
-            } />
+              <Route path="/products" element={
+                <ProductPage
+                  products={products}
+                  onUpdateProducts={handleUpdateProducts}
+                  gasUrl={gasConfig.url}
+                />
+              } />
 
-            <Route path="/move" element={
-              <StockMovementForm
-                products={products}
-                inventory={inventory}
-                masterLocations={masterLocations}
-                onMove={handleMoveStock}
-                onCancel={() => navigate('/dashboard')}
-              />
-            } />
+              <Route path="/smart-pick" element={
+                <SmartPickPage
+                  inventory={inventory}
+                  products={products}
+                  onProcessOutbound={handleOutboundProcess}
+                />
+              } />
 
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
+              <Route path="/move" element={
+                <StockMovementForm
+                  products={products}
+                  inventory={inventory}
+                  masterLocations={masterLocations}
+                  onMove={handleMoveStock}
+                  onCancel={() => navigate('/dashboard')}
+                />
+              } />
+
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </ErrorBoundary>
         </main>
       </div>
 

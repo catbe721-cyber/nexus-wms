@@ -119,18 +119,22 @@ export const getEmbedLink = (url: string | undefined): string | undefined => {
 
     // Check if it's a Google Drive URL
     if (url.includes('drive.google.com')) {
+        let id = '';
         // Extract ID from 'id=' parameter
         const idMatch = url.match(/id=([a-zA-Z0-9_-]+)/);
         if (idMatch && idMatch[1]) {
-            // Use the thumbnail API which is more reliable for hotlinking
-            // sz=w1000 requests a width of 1000px (high quality)
-            return `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w1000`;
+            id = idMatch[1];
+        } else {
+            // Fallback: try extracting from /d/ID/ (view link)
+            const pathMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (pathMatch && pathMatch[1]) {
+                id = pathMatch[1];
+            }
         }
 
-        // Fallback: try extracting from /d/ID/ (view link)
-        const pathMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (pathMatch && pathMatch[1]) {
-            return `https://drive.google.com/thumbnail?id=${pathMatch[1]}&sz=w1000`;
+        if (id) {
+            // Use lh3.googleusercontent.com for direct embedding without 403s
+            return `https://lh3.googleusercontent.com/d/${id}`;
         }
     }
 
@@ -146,30 +150,50 @@ export const parseCSV = (text: string) => {
     const lines = text.split('\n');
     const result: string[][] = [];
 
-    for (const line of lines) {
-        if (!line.trim()) continue;
+    // Improved standard CSV parser that creates robust separation
+    let i = 0;
+    while (i < text.length) {
         const row: string[] = [];
-        let current = '';
         let inQuotes = false;
+        let currentValue = '';
 
-        for (let i = 0; i < line.length; i++) {
-            const char = line[i];
+        while (i < text.length) {
+            const char = text[i];
+            const nextChar = text[i + 1];
+
             if (char === '"') {
-                if (inQuotes && line[i + 1] === '"') {
-                    current += '"';
-                    i++;
+                if (inQuotes && nextChar === '"') {
+                    // Escaped quote ("") -> literal quote (")
+                    currentValue += '"';
+                    i++; // skip next quote
                 } else {
                     inQuotes = !inQuotes;
                 }
             } else if (char === ',' && !inQuotes) {
-                row.push(current.trim());
-                current = '';
+                // End of cell
+                row.push(currentValue.trim());
+                currentValue = '';
+            } else if ((char === '\r' || char === '\n') && !inQuotes) {
+                // End of row
+                // Handle \r\n vs \n
+                if (char === '\r' && nextChar === '\n') {
+                    i++;
+                }
+                break; // Break inner loop to push row
             } else {
-                current += char;
+                currentValue += char;
             }
+            i++;
         }
-        row.push(current.trim());
-        if (row.length > 1) result.push(row);
+
+        // Push last value of the row
+        row.push(currentValue.trim());
+
+        if (row.some(cell => cell.length > 0)) {
+            result.push(row);
+        }
+
+        i++; // Move past the newline char
     }
     return result;
 };

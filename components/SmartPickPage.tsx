@@ -1,36 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Trash2, Calendar, FileText, Check, Settings, Loader2, Image as ImageIcon, Search, AlertCircle, X, PackageMinus, Plus } from 'lucide-react';
 import { InventoryItem, Product } from '../types';
-import { smartSearch } from '../utils';
+import { smartSearch, getEmbedLink } from '../utils'; // Add getEmbedLink import
 import { PICKING_RULES } from '../config/pickingConfig';
+import { getImageFromDB, deleteImageFromDB } from '../imageDB'; // Keep get/delete for legacy support, remove save usage
 
-const CONFIG = {
-    API_MODEL: "gemini-2.5-flash-preview-09-2025",
-    API_URL_PREFIX: "https://generativelanguage.googleapis.com/v1beta/models/",
-    STORAGE_KEY: "COOKED_FOOD_PICKING_DATA",
-};
-
+// --- Interfaces ---
 interface PickItem {
     id: string;
     item: string;
-    uom: string;
     qty: number;
-}
-
-interface ProcessedResults {
-    Pallet1Items: PickItem[];
-    Pallet2Items: PickItem[];
-    Pallet3Items: PickItem[];
-    MiscellaneousItems: PickItem[];
-    totalValidItems: number;
-    totalPallets: number;
-    p2Pallets: number;
+    uom: string;
 }
 
 interface ManifestData {
     dateId: string;
     formattedDate: string;
-    processedResults: ProcessedResults;
+    processedResults: {
+        Pallet1Items: PickItem[];
+        Pallet2Items: PickItem[];
+        Pallet3Items: PickItem[];
+        MiscellaneousItems: PickItem[];
+        totalValidItems: number;
+    };
     pickedState: Record<string, boolean>;
     originalImage?: string;
 }
@@ -38,15 +30,27 @@ interface ManifestData {
 interface SmartPickPageProps {
     inventory: InventoryItem[];
     products: Product[];
-    onProcessOutbound: (itemsToRemove: { id: string, qty: number }[]) => void;
+    onProcessOutbound: (items: any[], note?: string) => void;
 }
 
+const CONFIG = {
+    API_URL_PREFIX: 'https://generativelanguage.googleapis.com/v1beta/models/',
+    API_MODEL: 'gemini-2.5-flash'
+};
+
 export default function SmartPickPage({ inventory, products, onProcessOutbound }: SmartPickPageProps) {
-    const [manifests, setManifests] = useState<Record<string, ManifestData>>({});
+    // --- State ---
+    const [manifests, setManifests] = useState<Record<string, ManifestData>>(() => {
+        try {
+            const saved = localStorage.getItem('nexuswms_smartpick_manifests');
+            return saved ? JSON.parse(saved) : {};
+        } catch (e) { return {}; }
+    });
     const [currentDateId, setCurrentDateId] = useState<string | null>(null);
+    const [previewImg, setPreviewImg] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [previewImg, setPreviewImg] = useState<string | null>(null);
+    const [displayImage, setDisplayImage] = useState<string | null>(null);
     const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
     // Manual Entry State
@@ -56,66 +60,71 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const [isLoaded, setIsLoaded] = useState(false);
-
-    // Initial Load
+    // --- Persistence ---
     useEffect(() => {
-        const savedData = localStorage.getItem(CONFIG.STORAGE_KEY);
-        if (savedData) {
-            try {
-                const parsed = JSON.parse(savedData);
-                setManifests(parsed);
-                const keys = Object.keys(parsed).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-                if (keys.length > 0) setCurrentDateId(keys[0]);
-            } catch (e) {
-                console.error("Failed to load local data", e);
+        try {
+            localStorage.setItem('nexuswms_smartpick_manifests', JSON.stringify(manifests));
+        } catch (e) { console.error("Failed to save manifests", e); }
+    }, [manifests]);
+
+    // --- Image Loading ---
+    useEffect(() => {
+        const loadImg = async () => {
+            if (!currentDateId) {
+                setDisplayImage(null);
+                return;
             }
-        }
-        setIsLoaded(true);
-    }, []);
+            const m = manifests[currentDateId];
+            if (m?.originalImage) {
+                if (m.originalImage.startsWith('http')) {
+                    setDisplayImage(getEmbedLink(m.originalImage) || m.originalImage);
+                } else if (m.originalImage.startsWith('data:')) {
+                    setDisplayImage(m.originalImage);
+                } else {
+                    const img = await getImageFromDB(m.originalImage);
+                    setDisplayImage(img || null);
+                }
+            } else {
+                setDisplayImage(null);
+            }
+        };
+        loadImg();
+    }, [currentDateId, manifests]);
 
-    // Save Data Effect
-    useEffect(() => {
-        if (isLoaded) {
-            localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(manifests));
-        }
-    }, [manifests, isLoaded]);
-
+    // --- Helpers ---
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
             reader.onload = (ev) => {
-                setPreviewImg(ev.target?.result as string);
+                if (ev.target?.result) setPreviewImg(ev.target.result as string);
             };
             reader.readAsDataURL(file);
         }
     };
 
-    const categorizeItem = (i: PickItem) => {
-        const n = i.item.toLowerCase();
-        if (PICKING_RULES.P1_KEYWORDS.some(k => n.includes(k.toLowerCase()))) return 'P1';
-        if (PICKING_RULES.P2_KEYWORDS.some(k => n.includes(k.toLowerCase()))) return 'P2';
-        if (PICKING_RULES.P3_UOMS.includes(i.uom as any)) return 'P3';
-        return 'Misc';
-    };
+    const processResults = (items: PickItem[]) => {
+        const p1: PickItem[] = [];
+        const p2: PickItem[] = [];
+        const p3: PickItem[] = [];
+        const misc: PickItem[] = [];
 
-    const processResults = (items: PickItem[]): ProcessedResults => {
-        const p1 = items.filter(i => categorizeItem(i) === 'P1');
-        const p2 = items.filter(i => categorizeItem(i) === 'P2');
-        const p3 = items.filter(i => categorizeItem(i) === 'P3');
-        const misc = items.filter(i => categorizeItem(i) === 'Misc');
-
-        let bhQty = 0, bxQty = 0;
-        p2.forEach(i => {
-            if (i.item.toUpperCase().includes("BH-20")) bhQty += i.qty;
-            else bxQty += i.qty;
+        items.forEach(i => {
+            const name = i.item.toLowerCase();
+            // Simple keyword matching based on config
+            if (PICKING_RULES.P1_KEYWORDS.some(k => name.includes(k))) p1.push(i);
+            else if (PICKING_RULES.P2_KEYWORDS.some(k => name.includes(k))) p2.push(i);
+            else if (PICKING_RULES.P3_UOMS.includes(i.uom as any)) p3.push(i);
+            else misc.push(i);
         });
-        const p2Pallets = Math.ceil(bhQty / 24) + Math.ceil(bxQty / 31);
-        const p3Pallets = p3.reduce((s, i) => s + i.qty, 0);
-        const total = (p1.length ? 1 : 0) + p2Pallets + p3Pallets + (misc.length ? 1 : 0);
 
-        return { Pallet1Items: p1, Pallet2Items: p2, Pallet3Items: p3, MiscellaneousItems: misc, totalValidItems: items.length, totalPallets: total, p2Pallets };
+        return {
+            Pallet1Items: p1,
+            Pallet2Items: p2,
+            Pallet3Items: p3,
+            MiscellaneousItems: misc,
+            totalValidItems: items.length
+        };
     };
 
     const processImage = async () => {
@@ -132,15 +141,49 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
         setError(null);
 
         try {
-            const base64 = previewImg?.split(',')[1];
+            if (!previewImg) throw new Error("Image not loaded");
+
+            // Optimize Image Size (Resize to max 1024px)
+            const resizeImage = (dataUrl: string): Promise<string> => {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.src = dataUrl;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        const maxDim = 1024;
+
+                        if (width > maxDim || height > maxDim) {
+                            if (width > height) {
+                                height = Math.round((height * maxDim) / width);
+                                width = maxDim;
+                            } else {
+                                width = Math.round((width * maxDim) / height);
+                                height = maxDim;
+                            }
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx?.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.8)); // 80% quality
+                    };
+                });
+            };
+
+            const resizedBase64Url = await resizeImage(previewImg);
+            const base64 = resizedBase64Url.split(',')[1];
+
             if (!base64) throw new Error("Image processing failed");
 
-            const prompt = "Extract Date, Item, UoM, Qty where Qty > 0. Response JSON format: {date: string, items: Array<{item: string, uom: string, qty: number}>}";
+            // 1. Start Gemini Analysis
+            const prompt = "Extract Date (YYYY-MM-DD), Item, UoM, Qty where Qty > 0. Response JSON format: {date: string, items: Array<{item: string, uom: string, qty: number}>}";
             const schema = { type: "OBJECT", properties: { date: { type: "STRING" }, items: { type: "ARRAY", items: { type: "OBJECT", properties: { item: { type: "STRING" }, uom: { type: "STRING" }, qty: { type: "NUMBER" } }, required: ["item", "uom", "qty"] } } }, required: ["date", "items"] };
-
             const url = `${CONFIG.API_URL_PREFIX}${CONFIG.API_MODEL}:generateContent?key=${apiKey}`;
 
-            const response = await fetch(url, {
+            const geminiReq = fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -149,7 +192,14 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
                 })
             });
 
-            if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+            // 2. Wait for Gemini Analysis First (to get the date)
+            const response = await geminiReq;
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error("Gemini API Error Details:", errorText);
+                throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText}`);
+            }
 
             const res = await response.json();
             const data = JSON.parse(res.candidates[0].content.parts[0].text);
@@ -161,23 +211,110 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
             }));
 
             const results = processResults(items);
-            const formattedDate = new Date(data.date).toLocaleDateString();
+
+            // Robust Date Parsing
+            let dateObj = new Date(data.date);
+            if (isNaN(dateObj.getTime())) {
+                console.warn("Invalid date from Gemini:", data.date, "Falling back to today.");
+                dateObj = new Date();
+            }
+
+            // Fix timezone offset issues by treating the YYYY-MM-DD as local 
+            // If Gemini returns YYYY-MM-DD, new Date() might treat it as UTC.
+            // Let's ensure we just use the components if it matches the pattern
+            if (/^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
+                const [y, m, d] = data.date.split('-').map(Number);
+                dateObj = new Date(y, m - 1, d);
+            }
+
+            const formattedDate = dateObj.toLocaleDateString(); // e.g., 2/15/2026/
+            const dateFilename = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const newFilename = `SmartPick_${dateFilename}.jpg`;
+
+            console.log("Renaming image to:", newFilename);
+
+            // Use dateObj string for dateId to be safe
+            const safeDateId = dateObj.toISOString().split('T')[0];
+
+            // 3. Skip Drive Upload (User requested to disable storage for speed)
+            console.log("Skipping Drive upload as per configuration.");
+
+            /* 
+            // Previous Upload Logic (Disabled)
+            let driveUrl = '';
+            const gasUrl = localStorage.getItem('nexuswms_gas_config') ? JSON.parse(localStorage.getItem('nexuswms_gas_config')!).url : '';
+
+            if (gasUrl) {
+                try {
+                    // Create a new File object with the new name
+                    const renamedFile = new File([file], newFilename, { type: file.type });
+
+                    // Upload to "Pick Lists" folder
+                    driveUrl = await import('../services/gasApi').then(mod => mod.GASService.uploadImage(gasUrl, renamedFile, 'Pick Lists'));
+                    console.log("Image uploaded successfully:", driveUrl);
+
+                    // Force a small delay to allow drive propagation if needed?
+                } catch (err) {
+                    console.error("Auto-upload failed:", err);
+                    alert("Warning: Auto-upload to Drive failed. Image not saved to cloud.");
+                }
+            }
+            */
 
             const newManifest: ManifestData = {
-                dateId: data.date,
+                dateId: safeDateId,
                 formattedDate,
                 processedResults: results,
                 pickedState: {},
-                originalImage: previewImg || undefined
+                originalImage: undefined // Do not store image
             };
 
-            setManifests(prev => ({ ...prev, [data.date]: newManifest }));
-            setCurrentDateId(data.date);
+            setManifests(prev => ({ ...prev, [safeDateId]: newManifest }));
+            setCurrentDateId(safeDateId);
             setPreviewImg(null);
             if (fileInputRef.current) fileInputRef.current.value = '';
 
         } catch (e: any) {
             setError(e.message || "Failed to process image");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSaveToDrive = async () => {
+        if (!currentDateId) return;
+        const m = manifests[currentDateId];
+        if (!m || !m.originalImage) return;
+
+        setLoading(true);
+        try {
+            // Get image data
+            let base64 = '';
+            if (m.originalImage.startsWith('data:')) {
+                base64 = m.originalImage;
+            } else {
+                const img = await getImageFromDB(m.originalImage);
+                if (img) base64 = img;
+            }
+
+            if (!base64) throw new Error("Image data not found");
+
+            // Convert base64 to File object for upload
+            const res = await fetch(base64);
+            const blob = await res.blob();
+            const file = new File([blob], `SmartPick_${currentDateId}.jpg`, { type: 'image/jpeg' });
+
+            const gasUrl = localStorage.getItem('nexuswms_gas_config') ? JSON.parse(localStorage.getItem('nexuswms_gas_config')!).url : '';
+            if (!gasUrl) throw new Error("Google Apps Script URL not configured");
+
+            // Upload to "Pick Lists" subfolder
+            await import('../services/gasApi').then(mod => mod.GASService.uploadImage(gasUrl, file, 'Pick Lists'));
+
+            alert("Image saved to Google Drive (Folder: Pick Lists)!");
+
+        } catch (e: any) {
+            console.error(e);
+            alert("Failed to save to Drive: " + e.message);
         } finally {
             setLoading(false);
         }
@@ -257,11 +394,14 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
         });
     };
 
-    const deleteCurrent = () => {
+    const deleteCurrent = async () => {
         if (!currentDateId) return;
         const newManifests = { ...manifests };
         delete newManifests[currentDateId];
         setManifests(newManifests);
+
+        // Remove from DB
+        await deleteImageFromDB(currentDateId);
 
         const remaining = Object.keys(newManifests).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
         setCurrentDateId(remaining[0] || null);
@@ -405,9 +545,18 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
                             {currentDateId && (
                                 <>
                                     <span className="text-lg font-bold text-white">{manifests[currentDateId]?.formattedDate}</span>
-                                    <button onClick={deleteCurrent} className="text-red-400 hover:text-red-300 transition-colors p-1" title="Delete">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
+                                    <div className="flex gap-2">
+                                        {/* Save to Drive Disabled
+                                        {manifests[currentDateId]?.originalImage && !manifests[currentDateId]?.originalImage?.startsWith('http') && (
+                                            <button onClick={handleSaveToDrive} className="text-blue-400 hover:text-blue-300 transition-colors p-1" title="Save to Drive">
+                                                <Upload className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                        */}
+                                        <button onClick={deleteCurrent} className="text-red-400 hover:text-red-300 transition-colors p-1" title="Delete">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </>
                             )}
                         </div>
@@ -590,15 +739,16 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
 
 
                     {/* Original Image Section (Moved to Bottom) */}
-                    {currentManifest?.originalImage && (
+                    {displayImage && (
                         <div className="bg-slate-800/40 p-4 rounded-xl border border-white/5 overflow-hidden mt-8">
                             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                                 <ImageIcon className="w-4 h-4" /> Original Image <span className="text-[10px] text-slate-500 ml-2">(Click to Enlarge)</span>
                             </h3>
-                            <div className="bg-black/20 rounded-lg border border-white/5 p-2 cursor-zoom-in hover:border-violet-500/30 transition-colors" onClick={() => setExpandedImage(currentManifest.originalImage || null)}>
+                            <div className="bg-black/20 rounded-lg border border-white/5 p-2 cursor-zoom-in hover:border-violet-500/30 transition-colors" onClick={() => setExpandedImage(displayImage)}>
                                 <img
-                                    src={currentManifest.originalImage}
+                                    src={displayImage}
                                     alt="Original Manifest"
+                                    referrerPolicy="no-referrer"
                                     className="w-full object-contain rounded shadow-lg max-h-[600px]"
                                 />
                             </div>
@@ -612,7 +762,7 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
             {expandedImage && (
                 <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setExpandedImage(null)}>
                     <div className="relative max-w-7xl max-h-screen">
-                        <img src={expandedImage} className="max-w-full max-h-[95vh] rounded-lg shadow-2xl border border-white/10" alt="Expanded" />
+                        <img src={expandedImage} referrerPolicy="no-referrer" className="max-w-full max-h-[95vh] rounded-lg shadow-2xl border border-white/10" alt="Expanded" />
                         <button className="absolute -top-12 right-0 md:top-4 md:right-4 bg-white/10 text-white p-2 rounded-full hover:bg-red-500/80 transition-colors backdrop-blur-md">
                             <X className="w-6 h-6" />
                         </button>

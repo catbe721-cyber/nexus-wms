@@ -28,7 +28,7 @@ const ImageThumbnail: React.FC<ImageThumbnailProps> = ({ src, alt, className = "
                 onMouseLeave={() => setHovered(null)}
                 onClick={() => allowZoom && setExpanded(true)}
             >
-                <img src={embedSrc} alt={alt} className="w-full h-full object-contain" />
+                <img src={embedSrc} alt={alt} referrerPolicy="no-referrer" className="w-full h-full object-contain" />
             </div>
 
             {/* Hover Preview */}
@@ -42,7 +42,7 @@ const ImageThumbnail: React.FC<ImageThumbnailProps> = ({ src, alt, className = "
                     }}
                 >
                     <div className="w-48 h-48 bg-slate-900 rounded-lg overflow-hidden flex items-center justify-center">
-                        <img src={embedSrc} alt="Preview" className="w-full h-full object-contain" />
+                        <img src={embedSrc} alt="Preview" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
                     </div>
                 </div>
             )}
@@ -59,6 +59,7 @@ const ImageThumbnail: React.FC<ImageThumbnailProps> = ({ src, alt, className = "
                     <img
                         src={embedSrc}
                         alt="Enlarged"
+                        referrerPolicy="no-referrer"
                         className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
                     />
                 </div>

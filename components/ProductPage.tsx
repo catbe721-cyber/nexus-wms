@@ -139,7 +139,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
 
     setIsUploading(true);
     try {
-      const imageUrl = await GASService.uploadImage(gasUrl, file);
+      const imageUrl = await GASService.uploadImage(gasUrl, file, 'Products');
       setFormData(prev => ({ ...prev, image: imageUrl }));
     } catch (error: any) {
       console.error(error);

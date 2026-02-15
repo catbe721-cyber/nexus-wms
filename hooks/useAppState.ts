@@ -133,12 +133,26 @@ export function useAppState() {
     const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
 
     // -- Persistence Effects --
-    useEffect(() => { localStorage.setItem('nexuswms_inventory', JSON.stringify(inventory)); }, [inventory]);
-    useEffect(() => { localStorage.setItem('nexuswms_products', JSON.stringify(products)); }, [products]);
-    useEffect(() => { localStorage.setItem('nexuswms_transactions', JSON.stringify(transactions)); }, [transactions]);
-    useEffect(() => { localStorage.setItem('nexuswms_picklists', JSON.stringify(savedPickLists)); }, [savedPickLists]);
-    useEffect(() => { localStorage.setItem('nexuswms_locations_v3', JSON.stringify(masterLocations)); }, [masterLocations]);
-    useEffect(() => { localStorage.setItem('nexuswms_gas_config', JSON.stringify(gasConfig)); }, [gasConfig]);
+    // -- Persistence Effects (Safe Mode) --
+    const safeSave = (key: string, data: any) => {
+        try {
+            localStorage.setItem(key, JSON.stringify(data));
+        } catch (e: any) {
+            console.error(`NexusWMS: Failed to save ${key} to localStorage`, e);
+            if (e.name === 'QuotaExceededError') {
+                // Optional: We could trigger a global alert here if we had access to the helper,
+                // but console error is strictly safer than crashing.
+                console.warn('CRITICAL: LocalStorage is full. Data is not persisting locally.');
+            }
+        }
+    };
+
+    useEffect(() => { safeSave('nexuswms_inventory', inventory); }, [inventory]);
+    useEffect(() => { safeSave('nexuswms_products', products); }, [products]);
+    useEffect(() => { safeSave('nexuswms_transactions', transactions); }, [transactions]);
+    useEffect(() => { safeSave('nexuswms_picklists', savedPickLists); }, [savedPickLists]);
+    useEffect(() => { safeSave('nexuswms_locations_v3', masterLocations); }, [masterLocations]);
+    useEffect(() => { safeSave('nexuswms_gas_config', gasConfig); }, [gasConfig]);
 
     // -- Auto-Sync Effect --
     const isInitialSyncDone = useRef(false);

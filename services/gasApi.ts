@@ -108,8 +108,9 @@ export const GASService = {
      * Upload an image to Google Drive via GAS
      * @param url The Web App URL
      * @param file The file object to upload
+     * @param folderName Optional folder name to save the image (e.g. "RTE Pick List")
      */
-    async uploadImage(url: string, file: File): Promise<string> {
+    async uploadImage(url: string, file: File, folderName?: string): Promise<string> {
         if (!url) throw new Error('GAP API URL not configured');
 
         return new Promise((resolve, reject) => {
@@ -122,7 +123,8 @@ export const GASService = {
                         data: {
                             name: file.name,
                             type: file.type,
-                            base64: base64
+                            base64: base64,
+                            folderName: folderName // Pass folder name if provided
                         }
                     });
 
