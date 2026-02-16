@@ -24,15 +24,22 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({ mapSearch, products, in
             const items = inventory.filter(i => i.productCode === p.productCode);
             if (items.length === 0) continue; // Hide if out of stock
 
-            const racks = Array.from(new Set(items.flatMap(i => i.locations.map(l => l.rack)))) as string[];
-
-            const areas: string[] = racks.map((r: string) => {
-                if (r === 'S') return 'Staging';
-                if (r === 'R') return 'Reserve';
-                if (r === 'Z') return 'Zone';
-                if (r.length === 1) return `Rack ${r}`; // Rack A, B, etc.
-                return r; // Fallback
+            const uniqueLocs = new Set<string>();
+            items.flatMap(i => i.locations).forEach(l => {
+                let name = l.rack;
+                if (l.rack === 'S') name = 'Staging';
+                else if (l.rack === 'R') name = 'Reserve';
+                else if (l.rack === 'Z') name = 'Zone';
+                else if (l.rack === 'T') name = 'Transit';
+                else if (l.rack.length === 1) {
+                    // Include Level for Standard Racks
+                    const lv = l.level === 'Floor' ? 'Lv Floor' : `Lv ${l.level}`;
+                    name = `Rack ${l.rack} ${lv}`;
+                }
+                uniqueLocs.add(name);
             });
+
+            const areas = Array.from(uniqueLocs).sort();
 
             matches.push({
                 product: p,

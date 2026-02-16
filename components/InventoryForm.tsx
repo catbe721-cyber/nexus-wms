@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Product, InventoryItem, MasterLocation, InventoryLocation, generateId } from '../types';
 import { AREA_CONFIG, LEVELS, BAYS_PER_RACK } from '../consts/warehouse';
 import { smartSearch, filterBinCodes, getEmbedLink } from '../utils';
-import { X, CheckCircle, Save, MapPin, Lock, Check } from 'lucide-react';
+import { X, CheckCircle, Save, MapPin, Lock, Check, Package, ChevronDown } from 'lucide-react';
 import ConfirmModal, { ModalType } from './ConfirmModal';
 
 interface InventoryFormProps {
@@ -127,7 +127,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, inventory = [],
 
   const handleSelectProduct = (product: Product) => {
     setSelectedProduct(product);
-    setSearchTerm(`${product.productCode} - ${product.name} `);
+    setSearchTerm(product.name);
     if (!initialData) {
       setCategory(product.defaultCategory || 'OTH');
       setUnit(product.defaultUnit || 'pcs');
@@ -257,14 +257,15 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, inventory = [],
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
-              if (selectedProduct && e.target.value !== `${selectedProduct.productCode} - ${selectedProduct.name} `) {
+              if (selectedProduct && e.target.value !== selectedProduct.name) {
                 setSelectedProduct(null); // Reset selection if typing new search
               }
             }}
             placeholder="Search by code or name..."
-            className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none placeholder-slate-600"
+            className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none placeholder-slate-600 font-bold"
             disabled={!!initialData}
           />
+          {selectedProduct && <p className="text-xs text-slate-500 font-mono mt-1 ml-1">Code: <span className="text-slate-300">{selectedProduct.productCode}</span></p>}
           {initialData && <p className="text-xs text-slate-500 mt-1">Product cannot be changed when editing.</p>}
 
           {/* Autocomplete Dropdown */}
@@ -297,14 +298,45 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, inventory = [],
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div className="col-span-2 md:col-span-1">
             <label className="block text-sm font-bold text-slate-400 mb-1 uppercase tracking-wider">Quantity</label>
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0"
-              value={quantity}
-              onChange={(e) => setQuantity(parseFloat(e.target.value))}
-              className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary outline-none"
-            />
+            <div className="flex gap-2">
+              <input
+                type="number"
+                inputMode="decimal"
+                min="0"
+                value={quantity}
+                onChange={(e) => setQuantity(parseFloat(e.target.value))}
+                className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary outline-none placeholder-slate-600 font-bold"
+                placeholder="Total Units"
+              />
+            </div>
+            {selectedProduct && selectedProduct.countPerPallet ? (
+              <div className="mt-3 bg-violet-500/10 border border-violet-500/20 rounded-lg p-3">
+                <div className="flex justify-between items-center mb-2">
+                  <div className="flex items-center gap-1.5 text-violet-300">
+                    <Package className="w-3.5 h-3.5" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Pallet Calc</span>
+                  </div>
+                  <div className="text-[10px] bg-violet-500/20 text-violet-200 px-1.5 py-0.5 rounded border border-violet-500/30">
+                    1 PLT = <strong>{selectedProduct.countPerPallet}</strong> {unit}
+                  </div>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Enter Pallet Count..."
+                    className="w-full pl-3 pr-12 py-2 bg-black/40 border border-violet-500/30 rounded-md text-sm text-white focus:ring-1 focus:ring-violet-500 outline-none placeholder-slate-600 font-bold"
+                    onChange={(e) => {
+                      const plt = parseFloat(e.target.value);
+                      if (!isNaN(plt) && selectedProduct.countPerPallet) {
+                        setQuantity(plt * selectedProduct.countPerPallet);
+                      }
+                    }}
+                  />
+                  <span className="absolute right-3 top-2 text-xs font-bold text-violet-500">PLTs</span>
+                </div>
+              </div>
+            ) : null}
           </div>
           <div className="col-span-1">
             <label className="block text-sm font-bold text-slate-400 mb-1 uppercase tracking-wider flex items-center gap-1">
@@ -336,16 +368,19 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, inventory = [],
         <div className="grid grid-cols-3 gap-4">
           <div className="col-span-1">
             <label className="block text-sm font-bold text-slate-400 mb-1 uppercase tracking-wider">Inbound Type</label>
-            <select
-              value={inboundType}
-              onChange={(e) => setInboundType(e.target.value)}
-              className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary outline-none appearance-none"
-            >
-              <option value="Purchase">Purchase (PO)</option>
-              <option value="Return">Return</option>
-              <option value="Internal Transfer">Internal Transfer</option>
-              <option value="Other">Other</option>
-            </select>
+            <div className="relative">
+              <select
+                value={inboundType}
+                onChange={(e) => setInboundType(e.target.value)}
+                className="w-full pl-4 pr-10 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary outline-none appearance-none cursor-pointer font-bold"
+              >
+                <option value="Purchase">Purchase (PO)</option>
+                <option value="Return">Return</option>
+                <option value="Internal Transfer">Internal Transfer</option>
+                <option value="Other">Other</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
           </div>
           <div className="col-span-2">
             <label className="block text-sm font-bold text-slate-400 mb-1 uppercase tracking-wider">Note / Reference</label>
@@ -354,7 +389,7 @@ const InventoryForm: React.FC<InventoryFormProps> = ({ products, inventory = [],
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Enter PO number or details..."
-              className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+              className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary outline-none placeholder-slate-600 font-bold"
             />
           </div>
         </div>

@@ -299,7 +299,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
             placeholder="Search products..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-white/10 bg-black/40 rounded-lg text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+            className="w-full pl-10 pr-4 py-2 border border-white/10 bg-black/40 rounded-lg text-slate-100 placeholder-slate-600 focus:ring-2 focus:ring-primary focus:border-primary outline-none font-bold"
           />
         </div>
       </div>
@@ -316,8 +316,8 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Category</th>
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Dept</th>
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Unit</th>
-                <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Count/PLT</th>
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Min Stock</th>
+                <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Count/PLT</th>
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs">Updated</th>
                 <th className="px-6 py-4 font-bold text-slate-400 uppercase tracking-wider text-xs text-right">Actions</th>
               </tr>
@@ -468,7 +468,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
                     required
                     value={formData.productCode}
                     onChange={e => setFormData({ ...formData, productCode: e.target.value })}
-                    className="w-full px-3 py-2 border border-white/10 bg-black/40 rounded-lg text-white focus:ring-2 focus:ring-primary outline-none placeholder-slate-600"
+                    className="w-full px-3 py-2 border border-white/10 bg-black/40 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none placeholder-slate-600 font-bold"
                   />
                 </div>
                 <div>
@@ -479,7 +479,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
                     value={formData.defaultCategory}
                     onChange={e => setFormData({ ...formData, defaultCategory: e.target.value })}
                     placeholder="e.g. RAW"
-                    className="w-full px-3 py-2 border border-white/10 bg-black/40 rounded-lg text-white focus:ring-2 focus:ring-primary outline-none placeholder-slate-600"
+                    className="w-full px-3 py-2 border border-white/10 bg-black/40 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none placeholder-slate-600 font-bold"
                   />
                   <datalist id="category-options">
                     {existingCategories.map(c => <option key={c} value={c} />)}
@@ -496,7 +496,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
                     value={formData.defaultUnit}
                     onChange={e => setFormData({ ...formData, defaultUnit: e.target.value })}
                     placeholder="e.g. kg, pcs"
-                    className="w-full px-3 py-2 border border-white/10 bg-black/40 rounded-lg text-white focus:ring-2 focus:ring-primary outline-none placeholder-slate-600"
+                    className="w-full px-3 py-2 border border-white/10 bg-black/40 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none placeholder-slate-600 font-bold"
                   />
                   <datalist id="unit-options">
                     {existingUnits.map(u => <option key={u} value={u} />)}
@@ -511,7 +511,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
                   required
                   value={formData.name}
                   onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-white/10 bg-black/40 rounded-lg text-white focus:ring-2 focus:ring-primary outline-none placeholder-slate-600"
+                  className="w-full px-3 py-2 border border-white/10 bg-black/40 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none placeholder-slate-600 font-bold"
                 />
 
               </div>
@@ -549,7 +549,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
                   min="0"
                   value={formData.minStockLevel}
                   onChange={e => setFormData({ ...formData, minStockLevel: parseInt(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-orange-500/30 bg-black/40 rounded-lg text-orange-200 focus:ring-2 focus:ring-orange-500 outline-none"
+                  className="w-full px-3 py-2 border border-orange-500/30 bg-black/40 rounded-lg text-orange-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none font-bold placeholder-orange-500/50"
                 />
                 <p className="text-xs text-orange-500/70 mt-1">Dashboard will alert if stock falls below this amount.</p>
               </div>
@@ -563,7 +563,7 @@ const ProductPage: React.FC<ProductPageProps> = ({ products, onUpdateProducts, g
                   min="0"
                   value={formData.countPerPallet}
                   onChange={e => setFormData({ ...formData, countPerPallet: parseInt(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-white/10 bg-black/40 rounded-lg text-slate-200 focus:ring-2 focus:ring-primary outline-none"
+                  className="w-full px-3 py-2 border border-white/10 bg-black/40 rounded-lg text-slate-200 focus:ring-2 focus:ring-primary focus:border-primary outline-none font-bold"
                 />
                 <p className="text-xs text-slate-500/70 mt-1">Reference for pallet calculations.</p>
               </div>

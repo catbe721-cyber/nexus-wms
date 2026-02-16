@@ -413,7 +413,7 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
                 }
               }}
               placeholder="Search Product Name or Code..."
-              className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+              className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none placeholder-slate-600 font-bold"
               autoFocus
             />
             {searchTerm && !selectedProduct && filteredProducts.length > 0 && (
@@ -476,7 +476,7 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
                     value={requestQty}
                     onChange={(e) => setRequestQty(parseInt(e.target.value) || 0)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAddToCart()}
-                    className="flex-1 px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-white font-bold outline-none focus:border-primary"
+                    className="flex-1 px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-white font-bold outline-none focus:ring-2 focus:ring-primary focus:border-primary placeholder-slate-600"
                   />
                   <button
                     onClick={handleAddToCart}
@@ -584,7 +584,7 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Add optional note (e.g. Order #123, Urgent, etc.)"
-                className="flex-1 bg-transparent text-sm text-slate-300 placeholder-slate-600 outline-none border border-white/10 rounded-lg px-3 py-2 focus:border-primary"
+                className="flex-1 bg-transparent text-sm text-slate-300 placeholder-slate-600 font-bold outline-none border border-white/10 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary"
               />
             </div>
 
@@ -620,7 +620,7 @@ const OutboundForm: React.FC<OutboundFormProps> = ({
                 placeholder="List Name (e.g., 'Weekly Sushi Restock')"
                 value={newListName}
                 onChange={e => setNewListName(e.target.value)}
-                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white mb-4 focus:ring-2 focus:ring-primary outline-none"
+                className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white mb-4 focus:ring-2 focus:ring-primary focus:border-primary outline-none placeholder-slate-600 font-bold"
               />
               <div className="flex justify-end gap-3">
                 <button onClick={() => setShowSaveModal(false)} className="px-4 py-2 text-slate-400 hover:text-white">Cancel</button>

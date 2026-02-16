@@ -620,13 +620,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                     {/* Zone Selector Bar - Dynamic */}
                     <div className="flex flex-wrap items-center gap-2 p-1 bg-black/40 rounded-lg overflow-x-auto">
                         {/* Date Picker */}
-                        <input
-                            type="date"
-                            value={selectedDate}
-                            onChange={(e) => setSelectedDate(e.target.value)}
-                            className="px-3 py-1 text-sm bg-slate-800 text-slate-300 border border-white/10 rounded outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                        />
-                        <div className="w-px h-6 bg-white/10 mx-1"></div>
+
 
                         <button
                             key="RACKS"
@@ -671,6 +665,13 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                                 {getAreaName(zone)}
                             </button>
                         ))}
+                        <div className="w-px h-6 bg-white/10 mx-1 ml-auto"></div>
+                        <input
+                            type="date"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            className="px-3 py-1 text-sm bg-slate-800 text-slate-300 border border-white/10 rounded outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                        />
                     </div>
 
                     {/* Search Bar */}
@@ -685,7 +686,7 @@ const WarehouseMap: React.FC<WarehouseMapProps> = ({ inventory, products, master
                                 setShowMapSearchDropdown(true);
                             }}
                             onFocus={() => setShowMapSearchDropdown(true)}
-                            className="w-full pl-9 pr-4 py-1.5 bg-black/40 border border-white/10 rounded-lg text-sm text-white focus:ring-2 focus:ring-primary outline-none placeholder-slate-600"
+                            className="w-full pl-9 pr-4 py-2 bg-black/40 border border-white/10 rounded-lg text-sm text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none placeholder-slate-600 font-bold"
                         />
                         {mapSearch && (
                             <button

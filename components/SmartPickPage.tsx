@@ -544,7 +544,7 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
                             <Calendar className="w-4 h-4" /> History
                         </h2>
                         <select
-                            className="w-full bg-slate-900 border border-white/10 rounded-lg p-3 text-slate-200 focus:ring-2 focus:ring-violet-500 outline-none"
+                            className="w-full bg-slate-900 border border-white/10 rounded-lg p-3 text-slate-200 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none font-bold"
                             value={currentDateId || ''}
                             onChange={(e) => setCurrentDateId(e.target.value || null)}
                         >
@@ -636,7 +636,7 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
                                 <div className="relative">
                                     <input
                                         type="text"
-                                        className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none placeholder-slate-600 text-sm"
+                                        className="w-full px-4 py-2 border border-white/10 bg-black/40 text-slate-100 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none placeholder-slate-600 text-sm font-bold"
                                         placeholder="Search Product..."
                                         value={manualItemName}
                                         onChange={(e) => {
@@ -672,7 +672,7 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
                                 <div className="flex gap-2">
                                     <input
                                         type="number"
-                                        className="w-20 bg-slate-900 border border-white/10 rounded-lg p-3 text-slate-200 focus:ring-2 focus:ring-violet-500 outline-none text-sm font-bold text-center"
+                                        className="w-20 bg-black/40 border border-white/10 rounded-lg p-3 text-slate-200 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none text-sm font-bold text-center"
                                         value={manualItemQty}
                                         onChange={(e) => setManualItemQty(parseFloat(e.target.value) || 0)}
                                         min={1}

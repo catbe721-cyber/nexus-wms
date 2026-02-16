@@ -65,14 +65,14 @@ const ItemAnalyticsPage: React.FC<ItemAnalyticsPageProps> = ({ inventory = [], t
 
     const handleSelectProduct = (product: Product) => {
         setSelectedProduct(product);
-        setSearchTerm(`${product.productCode} - ${product.name}`);
+        setSearchTerm(product.name);
     };
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const term = e.target.value;
         setSearchTerm(term);
         // If user clears input or types something new, reset selection
-        if (selectedProduct && term !== `${selectedProduct.productCode} - ${selectedProduct.name}`) {
+        if (selectedProduct && term !== selectedProduct.name) {
             setSelectedProduct(null);
         }
     };
@@ -382,17 +382,26 @@ const ItemAnalyticsPage: React.FC<ItemAnalyticsPageProps> = ({ inventory = [], t
             legend: { display: false },
             // @ts-ignore
             datalabels: {
-                display: 'auto',
+                display: (context: any) => {
+                    // Only show for the line chart (Balance), excluding Safety Stock
+                    if (context.dataset.type === 'line' && context.dataset.label !== 'Safety Stock') {
+                        // Smart Labeling: Hide if next value is same
+                        const data = context.dataset.data;
+                        const index = context.dataIndex;
+                        if (index < data.length - 1 && data[index + 1] === context.dataset.data[index]) return false;
+                        return true;
+                    }
+                    return false; // Hide for others
+                },
                 align: 'top',
                 anchor: 'start',
-                offset: 8,
-                color: '#f1f5f9',
-                font: { weight: 'bold', size: 11 },
-                formatter: (value: any, context: any) => {
-                    // Only show for the line chart (Balance), excluding Safety Stock
-                    if (context.dataset.type === 'line' && context.dataset.label !== 'Safety Stock') return value;
-                    return ''; // Hide for others
-                }
+                offset: 6,
+                borderRadius: 4,
+                padding: { top: 4, bottom: 4, left: 6, right: 6 },
+                color: '#ffffff', // White
+                backgroundColor: '#3b82f6', // Vivid Blue Background
+                font: { weight: 'bold', size: 12 }, // Bigger
+                formatter: (value: any) => value
             },
             tooltip: {
                 callbacks: {
@@ -431,7 +440,7 @@ const ItemAnalyticsPage: React.FC<ItemAnalyticsPageProps> = ({ inventory = [], t
             y: {
                 type: 'linear' as const,
                 display: true,
-                grace: '10%',
+                grace: '20%', // Added more space for labels
                 min: 0, // Ensure axis starts at 0
                 title: {
                     display: true,
@@ -476,7 +485,7 @@ const ItemAnalyticsPage: React.FC<ItemAnalyticsPageProps> = ({ inventory = [], t
                             value={searchTerm}
                             onChange={handleSearchChange}
                             placeholder="Search item or code..."
-                            className="w-full bg-slate-900/80 border border-slate-700 rounded-lg py-3 pl-12 pr-10 text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-slate-500 font-display"
+                            className="w-full bg-black/40 border border-white/10 rounded-lg py-3 pl-12 pr-10 text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary placeholder-slate-600 font-bold"
                         />
                         {searchTerm && (
                             <button
@@ -629,17 +638,140 @@ const ItemAnalyticsPage: React.FC<ItemAnalyticsPageProps> = ({ inventory = [], t
                             </div>
                         </div>
 
-                        {/* Chart 1: Daily Waterfall */}
-                        <div className="bg-slate-900/60 p-6 rounded-xl border border-white/10 backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.3)]">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-lg font-bold text-slate-200 font-display">Daily Inventory Waterfall</h3>
-                                <div className="flex gap-4 text-xs">
-                                    <span className="flex items-center gap-1 text-slate-400"><div className="w-3 h-3 bg-emerald-500 rounded-sm"></div> Net Increase</span>
-                                    <span className="flex items-center gap-1 text-slate-400"><div className="w-3 h-3 bg-red-500 rounded-sm"></div> Net Decrease</span>
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                            {/* Chart 1: Daily Waterfall */}
+                            <div className="bg-slate-900/60 p-6 rounded-xl border border-white/10 backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.3)]">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="text-lg font-bold text-slate-200 font-display">
+                                        Inventory Waterfall
+                                    </h3>
+                                    <div className="flex gap-4 text-xs">
+                                        <span className="flex items-center gap-1 text-slate-400"><div className="w-3 h-3 bg-emerald-500 rounded-sm"></div> Net Increase</span>
+                                        <span className="flex items-center gap-1 text-slate-400"><div className="w-3 h-3 bg-red-500 rounded-sm"></div> Net Decrease</span>
+                                    </div>
+                                </div>
+                                <div className="h-96">
+                                    <Chart type='bar' data={dailyWaterfallData} options={waterfallOptions} />
                                 </div>
                             </div>
-                            <div className="h-96">
-                                <Chart type='bar' data={dailyWaterfallData} options={waterfallOptions} />
+
+                            {/* Chart 2: Inventory Flow Combo */}
+                            <div className="bg-slate-900/60 p-6 rounded-xl border border-white/10 backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.3)]">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="text-lg font-bold text-slate-200 font-display">Inventory Flow & Balance</h3>
+                                    <div className="flex gap-4 text-xs">
+                                        <span className="flex items-center gap-1 text-slate-400"><div className="w-3 h-3 bg-emerald-500 rounded-sm"></div> Stock In</span>
+                                        <span className="flex items-center gap-1 text-slate-400"><div className="w-3 h-3 bg-red-500 rounded-sm"></div> Stock Out</span>
+                                        <span className="flex items-center gap-1 text-slate-400"><div className="w-8 h-0.5 bg-blue-500"></div> Balance</span>
+                                    </div>
+                                </div>
+                                <div className="h-96">
+                                    <Chart
+                                        type='bar'
+                                        data={{
+                                            labels: dailyWaterfallData.labels,
+                                            datasets: [
+                                                {
+                                                    type: 'line' as const,
+                                                    label: 'Current Balance',
+                                                    data: dashboardData?.stats.map((d: any) => d.balance) || [],
+                                                    borderColor: '#3b82f6',
+                                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                                    borderWidth: 3,
+                                                    tension: 0.3,
+                                                    fill: true,
+                                                    pointRadius: 0,
+                                                    pointHoverRadius: 6,
+                                                    yAxisID: 'y',
+                                                    order: 1
+                                                },
+                                                {
+                                                    type: 'bar' as const,
+                                                    label: 'Stock In',
+                                                    data: dashboardData?.stats.map((d: any) => d.in) || [],
+                                                    backgroundColor: '#10b981',
+                                                    hoverBackgroundColor: '#059669',
+                                                    barPercentage: 0.6,
+                                                    yAxisID: 'y',
+                                                    order: 2
+                                                },
+                                                {
+                                                    type: 'bar' as const,
+                                                    label: 'Stock Out',
+                                                    // Make negative for visual effect
+                                                    data: dashboardData?.stats.map((d: any) => -d.out) || [],
+                                                    backgroundColor: '#ef4444',
+                                                    hoverBackgroundColor: '#dc2626',
+                                                    barPercentage: 0.6,
+                                                    yAxisID: 'y',
+                                                    order: 2
+                                                }
+                                            ]
+                                        }}
+                                        options={{
+                                            responsive: true,
+                                            interaction: {
+                                                mode: 'index',
+                                                intersect: false,
+                                            },
+                                            plugins: {
+                                                legend: { display: false },
+                                                // @ts-ignore
+                                                datalabels: {
+                                                    display: (context: any) => {
+                                                        // Only show for the line chart (Balance)
+                                                        if (context.dataset.type === 'line') {
+                                                            // Smart Labeling: Hide if next value is same
+                                                            const data = context.dataset.data;
+                                                            const index = context.dataIndex;
+                                                            if (index < data.length - 1 && data[index + 1] === context.dataset.data[index]) return false;
+                                                            return true;
+                                                        }
+                                                        return false;
+                                                    },
+                                                    align: 'top',
+                                                    anchor: 'start',
+                                                    offset: 6,
+                                                    borderRadius: 4,
+                                                    padding: { top: 4, bottom: 4, left: 6, right: 6 },
+                                                    color: '#ffffff', // White
+                                                    backgroundColor: '#3b82f6', // Vivid Blue Background
+                                                    font: { weight: 'bold', size: 11 }, // Slightly smaller for flow
+                                                    formatter: (value: any) => value
+                                                },
+                                                tooltip: {
+                                                    callbacks: {
+                                                        label: (context) => {
+                                                            const label = context.dataset.label || '';
+                                                            const value = context.raw as number;
+                                                            if (label === 'Stock Out') return `${label}: ${Math.abs(value)}`;
+                                                            return `${label}: ${value}`;
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            scales: {
+                                                y: {
+                                                    type: 'linear' as const,
+                                                    display: true,
+                                                    grace: '20%', // Added space for labels
+                                                    title: {
+                                                        display: true,
+                                                        text: 'Quantity',
+                                                        color: '#cbd5e1',
+                                                        font: { size: 12, weight: 'bold' }
+                                                    },
+                                                    grid: { display: false }, // Removed grid
+                                                    ticks: { color: '#94a3b8' }
+                                                },
+                                                x: {
+                                                    grid: { display: false },
+                                                    ticks: { color: '#cbd5e1', font: { size: 11, weight: 'bold' } }
+                                                }
+                                            }
+                                        }}
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>

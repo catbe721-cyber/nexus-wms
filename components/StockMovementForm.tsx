@@ -67,7 +67,7 @@ const StockMovementForm: React.FC<StockMovementFormProps> = ({
 
     const handleSelectSource = (item: InventoryItem) => {
         setSelectedSourceItem(item);
-        setSearchTerm(`${item.productName} (${item.productCode})`);
+        setSearchTerm(item.productName);
         setMoveQty(0);
         // Reset destination
         setDestinationSearch('');
@@ -145,12 +145,12 @@ const StockMovementForm: React.FC<StockMovementFormProps> = ({
                             value={searchTerm}
                             onChange={e => {
                                 setSearchTerm(e.target.value);
-                                if (selectedSourceItem && e.target.value !== `${selectedSourceItem.productName} (${selectedSourceItem.productCode})`) {
+                                if (selectedSourceItem && e.target.value !== selectedSourceItem.productName) {
                                     setSelectedSourceItem(null);
                                 }
                             }}
                             placeholder="Search Item to Move..."
-                            className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none placeholder-slate-600 font-bold"
                         />
                         {searchTerm && !selectedSourceItem && filteredInventory.length > 0 && (
                             <div className="absolute z-30 w-full mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
@@ -193,6 +193,12 @@ const StockMovementForm: React.FC<StockMovementFormProps> = ({
                                 </div>
                             )}
 
+                            {/* Product Header */}
+                            <div className="mb-4 pb-4 border-b border-white/5">
+                                <h3 className="font-bold text-lg text-white font-display mb-1">{selectedSourceItem.productName}</h3>
+                                <p className="text-xs text-blue-400 font-mono tracking-wider">{selectedSourceItem.productCode}</p>
+                            </div>
+
                             <div className="flex justify-between items-center mb-4">
                                 <span className="text-xs text-slate-500 uppercase font-bold">Current Location</span>
                                 <span className="font-mono font-bold text-white bg-blue-500/20 px-3 py-1 rounded text-blue-300 border border-blue-500/30">
@@ -230,7 +236,7 @@ const StockMovementForm: React.FC<StockMovementFormProps> = ({
                             }}
                             onFocus={() => setShowDestDropdown(true)}
                             placeholder="Scan or Type Bin Code..."
-                            className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white focus:ring-2 focus:ring-green-500 outline-none font-mono"
+                            className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-primary outline-none font-mono placeholder-slate-600 font-bold"
                         />
                         {showDestDropdown && destinationSearch && filteredDestinations.length > 0 && (
                             <div className="absolute z-30 w-full mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
@@ -258,7 +264,7 @@ const StockMovementForm: React.FC<StockMovementFormProps> = ({
                             max={selectedSourceItem?.quantity || 0}
                             value={moveQty}
                             onChange={e => setMoveQty(parseFloat(e.target.value) || 0)}
-                            className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white font-bold text-xl outline-none focus:border-blue-500"
+                            className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-lg text-white font-bold text-xl outline-none focus:ring-2 focus:ring-primary focus:border-primary placeholder-slate-600"
                         />
                     </div>
 
