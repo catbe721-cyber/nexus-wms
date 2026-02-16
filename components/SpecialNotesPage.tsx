@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Transaction } from '../types';
+import { smartSearch } from '../utils';
 import { MessageSquare, ArrowDownLeft, ArrowUpRight, Search, RefreshCw, ArrowRightLeft, Trash2, ClipboardCheck, X } from 'lucide-react';
 
 interface SpecialNotesPageProps {
@@ -26,12 +27,7 @@ const SpecialNotesPage: React.FC<SpecialNotesPageProps> = ({ transactions }) => 
         if (isSystem) return false;
 
         // Apply Search
-        const searchLower = searchTerm.toLowerCase();
-        const matchesSearch = (
-            t.productName.toLowerCase().includes(searchLower) ||
-            t.productCode.toLowerCase().includes(searchLower) ||
-            note.toLowerCase().includes(searchLower)
-        );
+        const matchesSearch = smartSearch(t, ['productName', 'productCode', 'notes'], searchTerm);
 
         let matchesDate = true;
         if (startDate) {

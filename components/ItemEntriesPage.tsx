@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction } from '../types';
+import { smartSearch } from '../utils';
 import { ClipboardList, ArrowDownLeft, ArrowUpRight, RefreshCw, Search, Filter, X, ArrowRightLeft, Trash2, ClipboardCheck } from 'lucide-react';
 
 const TRANSACTION_TYPES = ['INBOUND', 'OUTBOUND', 'MOVE', 'ADJUSTMENT', 'DELETE', 'COUNT'];
@@ -44,10 +45,7 @@ const ItemEntriesPage: React.FC<ItemEntriesPageProps> = ({ transactions }) => {
 
     // Filter and Sort for Display (Newest first)
     const filteredTransactions = transactionsWithBalance.filter(t => {
-        const matchesSearch =
-            t.productCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            t.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            t.type.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = smartSearch(t, ['productCode', 'productName', 'type'], searchTerm);
 
         const matchesType = selectedTypes.length === 0 || selectedTypes.includes(t.type);
 
