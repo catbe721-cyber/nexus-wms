@@ -128,8 +128,8 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
             const name = i.item.toLowerCase();
             // Simple keyword matching based on config
             if (PICKING_RULES.P1_KEYWORDS.some(k => name.includes(k))) p1.push(i);
+            else if (PICKING_RULES.P3_UOMS.includes(i.uom as any) || PICKING_RULES.P3_KEYWORDS.some(k => name.includes(k))) p3.push(i);
             else if (PICKING_RULES.P2_KEYWORDS.some(k => name.includes(k))) p2.push(i);
-            else if (PICKING_RULES.P3_UOMS.includes(i.uom as any)) p3.push(i);
             else misc.push(i);
         });
 
@@ -733,13 +733,13 @@ export default function SmartPickPage({ inventory, products, onProcessOutbound }
                                             note="Ordered by Priority"
                                         />
                                         <PalletCard
-                                            title="Product Pallets (BX-20 / BH-20)"
+                                            title="Product Pallets"
                                             items={currentManifest.processedResults.Pallet2Items}
                                             colorClass="text-amber-400"
                                             borderClass="border-amber-500"
                                         />
                                         <PalletCard
-                                            title="Full Pallet Items"
+                                            title="Full Pallet Items (BH-20 / BX-20)"
                                             items={currentManifest.processedResults.Pallet3Items}
                                             colorClass="text-emerald-400"
                                             borderClass="border-emerald-500"
